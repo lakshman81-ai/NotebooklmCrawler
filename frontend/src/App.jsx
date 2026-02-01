@@ -37,7 +37,7 @@ function App() {
 
                     <nav className="hidden md:flex items-center gap-2">
                         <TabLink id="DASHBOARD" icon={<LayoutDashboard className="w-4 h-4" />} label="Dashboard" active={activeTab === 'DASHBOARD'} onClick={setActiveTab} />
-                        <TabLink id="TEMPLATES" icon={<FileSpreadsheet className="w-4 h-4" />} label="Templates" active={activeTab === 'TEMPLATES'} onClick={setActiveTab} />
+                        <TabLink id="TEMPLATES" icon={<FileSpreadsheet className="w-4 h-4" />} label="Templates/Notebooklm O/P Prompt Generator" active={activeTab === 'TEMPLATES'} onClick={setActiveTab} />
                         <TabLink id="JULES" icon={<MessageSquare className="w-4 h-4" />} label="Instruction to Jules" active={activeTab === 'JULES'} onClick={setActiveTab} />
                         <TabLink id="CONFIG" icon={<Settings className="w-4 h-4" />} label="Config" active={activeTab === 'CONFIG'} onClick={setActiveTab} />
                         <TabLink id="ADMIN" icon={<ShieldAlert className="w-4 h-4" />} label="Admin" active={activeTab === 'ADMIN'} onClick={setActiveTab} />
