@@ -74,7 +74,7 @@ const ConfigTab = () => {
         discoveryMethod: 'notebooklm',
         notebooklmAvailable: true,
         deepseekAvailable: false,
-        notebooklmGuided: false,
+        notebooklmGuided: true,
         // API Keys (Phase 4)
         geminiApiKey: '',
         openaiApiKey: '',

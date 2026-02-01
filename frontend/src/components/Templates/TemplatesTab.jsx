@@ -33,6 +33,9 @@ const TemplatesTab = () => {
     const [editableOutput, setEditableOutput] = useState('');
     const [copiedReport, setCopiedReport] = useState(false);
 
+    // State for error messages
+    const [errorMessage, setErrorMessage] = useState(null);
+
     // Settings from Dashboard context (would normally come from context provider)
     const [dashboardSettings, setDashboardSettings] = useState({
         grade: '',
@@ -89,6 +92,7 @@ const TemplatesTab = () => {
             const result = await templateService.readTemplateFile(path);
 
             if (result.success) {
+                setErrorMessage(null);
                 return {
                     columns: result.columns,
                     rowCount: result.rowCount,
@@ -102,7 +106,7 @@ const TemplatesTab = () => {
             return null;
         } catch (error) {
             console.error('Error loading template:', error);
-            alert(`Failed to load template: ${error.message}`);
+            setErrorMessage(`Failed to load template: ${error.message}`);
             return null;
         }
     };
@@ -200,10 +204,12 @@ const TemplatesTab = () => {
                         selected: false
                     }];
                 });
+
+                setErrorMessage(null);
             }
         } catch (error) {
             console.error('Upload error:', error);
-            alert(`Failed to upload file: ${error.message}`);
+            setErrorMessage(`Failed to upload file: ${error.message}`);
         }
     };
 
@@ -233,11 +239,6 @@ const TemplatesTab = () => {
 
     // Generate final report
     const handleGenerateReport = () => {
-        if (selectedPrompts.size === 0) {
-            alert('Please select at least one prompt to generate a report');
-            return;
-        }
-
         const selectedPromptData = generatedPrompts.filter(p => selectedPrompts.has(p.id));
         const report = generateReportPrompt(
             selectedPromptData,
@@ -249,6 +250,7 @@ const TemplatesTab = () => {
 
         setReportOutput(report);
         setEditableOutput(report);
+        setErrorMessage(null);
 
         // Scroll to report
         setTimeout(() => {
@@ -277,6 +279,25 @@ const TemplatesTab = () => {
                     </p>
                 </div>
             </div>
+
+            {/* Error Message Display */}
+            {errorMessage && (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 flex justify-between items-start gap-4">
+                        <div>
+                            <p className="text-sm font-bold text-red-900 mb-1">Error</p>
+                            <p className="text-xs text-red-700">{errorMessage}</p>
+                        </div>
+                        <button
+                            onClick={() => setErrorMessage(null)}
+                            className="text-red-600 hover:text-red-700 font-bold text-xs flex-shrink-0"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Info Banner */}
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
@@ -348,11 +369,7 @@ const TemplatesTab = () => {
             <div className="flex justify-center pt-4">
                 <button
                     onClick={handleGenerateReport}
-                    disabled={selectedPrompts.size === 0}
-                    className={`flex items-center gap-3 px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-2xl ${selectedPrompts.size > 0
-                        ? 'bg-indigo-600 text-white shadow-indigo-100 hover:bg-indigo-500 active:scale-95 cursor-pointer'
-                        : 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                        }`}
+                    className="flex items-center gap-3 px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-2xl bg-indigo-600 text-white shadow-indigo-100 hover:bg-indigo-500 active:scale-95 cursor-pointer"
                 >
                     <Zap className="w-5 h-5" />
                     Generate Report Prompts
