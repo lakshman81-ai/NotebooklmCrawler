@@ -5,7 +5,7 @@ import FileUploadPanel from './FileUploadPanel';
 import PromptOutputBox from './PromptOutputBox';
 import StudyGuideOptions from './StudyGuideOptions';
 import HandoutOptions from './HandoutOptions';
-import { generatePromptForFile, generateReportPrompt } from './promptGenerator';
+import { generatePromptForFile, generateReportPrompt, generateBasisSummary, generateSourcePromptsOnly } from './promptGenerator';
 import { templateService } from '../../services/templateService';
 
 /**
@@ -30,8 +30,12 @@ const TemplatesTab = () => {
 
     // State for final report
     const [reportOutput, setReportOutput] = useState('');
+    const [basisSummary, setBasisSummary] = useState('');
+    const [sourcePrompts, setSourcePrompts] = useState('');
     const [editableOutput, setEditableOutput] = useState('');
     const [copiedReport, setCopiedReport] = useState(false);
+    const [copiedBasis, setCopiedBasis] = useState(false);
+    const [copiedSource, setCopiedSource] = useState(false);
 
     // State for error messages
     const [errorMessage, setErrorMessage] = useState(null);
@@ -240,6 +244,7 @@ const TemplatesTab = () => {
     // Generate final report
     const handleGenerateReport = () => {
         const selectedPromptData = generatedPrompts.filter(p => selectedPrompts.has(p.id));
+
         const report = generateReportPrompt(
             selectedPromptData,
             studyGuideOptions,
@@ -249,7 +254,18 @@ const TemplatesTab = () => {
             dashboardSettings
         );
 
+        const summary = generateBasisSummary(
+            selectedPromptData,
+            studyGuideOptions,
+            handoutOptions,
+            dashboardSettings
+        );
+
+        const sources = generateSourcePromptsOnly(selectedPromptData);
+
         setReportOutput(report);
+        setBasisSummary(summary);
+        setSourcePrompts(sources);
         setEditableOutput(report);
         setErrorMessage(null);
 
@@ -259,11 +275,11 @@ const TemplatesTab = () => {
         }, 100);
     };
 
-    // Copy report to clipboard
-    const copyReportToClipboard = () => {
-        navigator.clipboard.writeText(editableOutput);
-        setCopiedReport(true);
-        setTimeout(() => setCopiedReport(false), 2000);
+    // Copy to clipboard helpers
+    const copyToClipboard = (text, setCopied) => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     return (
@@ -379,53 +395,88 @@ const TemplatesTab = () => {
 
             {/* Report Output */}
             {reportOutput && (
-                <div id="report-output" className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-[2rem] p-8 shadow-xl space-y-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
-                            <FileSpreadsheet className="w-6 h-6 text-indigo-600" />
+                <div id="report-output" className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-[2rem] p-8 shadow-xl space-y-8">
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+                            <FileSpreadsheet className="w-8 h-8 text-indigo-600" />
                             Generated Report
                         </h3>
                     </div>
 
                     {/* Input Basis - Read Only */}
-                    <div className="space-y-2">
-                        <label className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                            Input Basis (Read-only)
-                        </label>
-                        <textarea
-                            readOnly
-                            value={reportOutput}
-                            className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-700 resize-none focus:outline-none"
-                        />
-                        <p className="text-[10px] text-slate-400 italic">Source files and structure information</p>
-                    </div>
-
-                    {/* Output Prompt - Editable */}
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                                Output Prompt (Editable)
+                            <label className="text-sm font-black text-slate-500 uppercase tracking-widest">
+                                Input Basis (Variables Preview)
                             </label>
                             <button
-                                onClick={copyReportToClipboard}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${copiedReport
+                                onClick={() => copyToClipboard(basisSummary, setCopiedBasis)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${copiedBasis
                                     ? 'bg-emerald-100 text-emerald-700'
                                     : 'bg-white text-indigo-700 hover:bg-indigo-100 shadow-sm border border-indigo-200'
                                     }`}
                             >
-                                {copiedReport ? '✓ Copied!' : '📋 Copy'}
+                                {copiedBasis ? '✓ Copied!' : '📋 Copy Basis'}
+                            </button>
+                        </div>
+                        <textarea
+                            readOnly
+                            value={basisSummary}
+                            className="w-full h-48 p-5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 resize-none focus:outline-none shadow-inner"
+                        />
+                        <p className="text-xs text-slate-400 italic pl-1">Summary of variables and selections used for generation</p>
+                    </div>
+
+                    {/* Input Prompts - Read Only */}
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm font-black text-slate-500 uppercase tracking-widest">
+                                Source Input Prompts
+                            </label>
+                            <button
+                                onClick={() => copyToClipboard(sourcePrompts, setCopiedSource)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${copiedSource
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-white text-indigo-700 hover:bg-indigo-100 shadow-sm border border-indigo-200'
+                                    }`}
+                            >
+                                {copiedSource ? '✓ Copied!' : '📋 Copy Sources'}
+                            </button>
+                        </div>
+                        <textarea
+                            readOnly
+                            value={sourcePrompts}
+                            className="w-full h-64 p-5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 resize-y focus:outline-none shadow-inner"
+                        />
+                        <p className="text-xs text-slate-400 italic pl-1">Consolidated prompts from all selected source files</p>
+                    </div>
+
+                    {/* Output Prompt - Editable */}
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm font-black text-indigo-600 uppercase tracking-widest">
+                                Final Output Prompt (Editable)
+                            </label>
+                            <button
+                                onClick={() => copyToClipboard(editableOutput, setCopiedReport)}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-black transition-all shadow-md ${copiedReport
+                                    ? 'bg-emerald-500 text-white'
+                                    : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95'
+                                    }`}
+                            >
+                                {copiedReport ? '✓ Copied to Clipboard!' : '📋 Copy Final Prompt'}
                             </button>
                         </div>
                         <textarea
                             value={editableOutput}
                             onChange={(e) => setEditableOutput(e.target.value)}
-                            className="w-full h-56 p-4 bg-white border-2 border-indigo-300 rounded-xl text-xs font-mono text-slate-700 resize-y focus:outline-none focus:border-indigo-500"
+                            className="w-full h-80 p-6 bg-white border-4 border-indigo-100 rounded-[2rem] text-base font-medium text-slate-800 resize-y focus:outline-none focus:border-indigo-400 shadow-xl"
                             placeholder="Edit the prompt as needed before copying..."
                         />
-                        <p className="text-[10px] text-slate-400 italic">Edit this prompt before copying to NotebookLM</p>
+                        <p className="text-xs text-slate-500 font-bold italic pl-1">Edit this final synthesized prompt before pasting into NotebookLM</p>
                     </div>
 
-                    <div className="bg-indigo-100 border border-indigo-200 rounded-xl p-4">
+                    <div className="bg-white border-2 border-indigo-100 rounded-[2rem] p-6 shadow-sm">
                         <p className="text-xs font-bold text-indigo-900 mb-2">📝 Next Steps:</p>
                         <ol className="text-xs text-indigo-800 space-y-1 list-decimal list-inside">
                             <li>Edit the Output Prompt above if needed</li>

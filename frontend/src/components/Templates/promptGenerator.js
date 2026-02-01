@@ -163,6 +163,49 @@ function extractSubjectFromFilename(filename) {
 }
 
 /**
+ * Generate a summary of variables for the "Input Basis"
+ */
+export function generateBasisSummary(selectedPrompts, studyGuideOptions, handoutOptions, dashboardSettings) {
+    let summary = `## CONFIGURATION SUMMARY\n\n`;
+
+    summary += `**Selected Files (${selectedPrompts?.length || 0}):**\n`;
+    selectedPrompts?.forEach((p, idx) => {
+        summary += `- ${p.filename} (${p.source})\n`;
+    });
+
+    summary += `\n**Dashboard Context:**\n`;
+    summary += `- Grade: ${dashboardSettings?.grade || 'Not set'}\n`;
+    summary += `- Subject: ${dashboardSettings?.subject || 'Not set'}\n`;
+    summary += `- Topic: ${dashboardSettings?.topic || 'Not set'}\n`;
+    summary += `- Difficulty: ${dashboardSettings?.difficulty || 'Not set'}\n`;
+
+    summary += `\n**Study Guide Elements:**\n`;
+    const activeStudy = Object.entries(studyGuideOptions).filter(([_, v]) => v).map(([k]) => k);
+    summary += activeStudy.length > 0 ? `- ${activeStudy.join(', ')}` : `- None selected`;
+
+    summary += `\n\n**Handout Elements:**\n`;
+    const activeHandout = Object.entries(handoutOptions).filter(([_, v]) => v).map(([k]) => k);
+    summary += activeHandout.length > 0 ? `- ${activeHandout.join(', ')}` : `- None selected`;
+
+    return summary;
+}
+
+/**
+ * Generate source prompts only
+ */
+export function generateSourcePromptsOnly(selectedPrompts) {
+    if (!selectedPrompts || selectedPrompts.length === 0) return 'No source prompts available.';
+
+    let combined = `## DETAILED SOURCE PROMPTS\n\n`;
+    selectedPrompts.forEach((p, idx) => {
+        combined += `### SOURCE ${idx + 1}: ${p.filename}\n\n`;
+        combined += p.prompt;
+        combined += `\n\n${"=".repeat(50)}\n\n`;
+    });
+    return combined;
+}
+
+/**
  * Generate combined report prompt with all options
  * @param {Array} selectedPrompts - Array of selected prompt objects
  * @param {Object} studyGuideOptions - Study guide checkbox states
