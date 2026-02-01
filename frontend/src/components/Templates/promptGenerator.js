@@ -163,13 +163,59 @@ function extractSubjectFromFilename(filename) {
 }
 
 /**
+ * Generate a summary of variables used for the report (Preview of Variables)
+ */
+export function generateReportBasis(selectedPrompts, studyGuideOptions, handoutOptions, dashboardSettings) {
+    let basis = `### REPORT BASIS (PREVIEW OF VARIABLES)\n\n`;
+    basis += `**Topic:** ${dashboardSettings.topic || 'Not specified'}\n`;
+    basis += `**Grade:** ${dashboardSettings.grade || 'Not specified'}\n`;
+    basis += `**Subject:** ${dashboardSettings.subject || 'Not specified'}\n`;
+    basis += `**Difficulty:** ${dashboardSettings.difficulty || 'Connect'}\n\n`;
+
+    basis += `**Selected Sources:**\n`;
+    if (selectedPrompts && selectedPrompts.length > 0) {
+        selectedPrompts.forEach(p => {
+            basis += `- ${p.filename} (${p.source})\n`;
+        });
+    } else {
+        basis += `- No files selected\n`;
+    }
+    basis += `\n`;
+
+    const activeStudy = Object.entries(studyGuideOptions).filter(([k,v]) => v).map(([k]) => k);
+    basis += `**Study Guide Options:** ${activeStudy.length > 0 ? activeStudy.join(', ') : 'None'}\n`;
+
+    const activeHandout = Object.entries(handoutOptions).filter(([k,v]) => v).map(([k]) => k);
+    basis += `**Handout Options:** ${activeHandout.length > 0 ? activeHandout.join(', ') : 'None'}\n`;
+
+    return basis;
+}
+
+/**
+ * Generate concatenated source prompts for each selected file
+ */
+export function generateSourcePrompts(selectedPrompts) {
+    if (!selectedPrompts || selectedPrompts.length === 0) return '';
+
+    let sourcePrompts = `## SOURCE INPUT PROMPTS\n\n`;
+    sourcePrompts += `Below are the individual prompts for each selected source file. Paste these into NotebookLM as context.\n\n`;
+    sourcePrompts += `--- \n\n`;
+    selectedPrompts.forEach((p, idx) => {
+        sourcePrompts += `### Source ${idx + 1}: ${p.filename}\n\n`;
+        sourcePrompts += p.prompt;
+        sourcePrompts += `\n\n---\n\n`;
+    });
+    return sourcePrompts.trim();
+}
+
+/**
  * Generate combined report prompt with all options
  * @param {Array} selectedPrompts - Array of selected prompt objects
  * @param {Object} studyGuideOptions - Study guide checkbox states
  * @param {Object} handoutOptions - Handout checkbox states
  * @param {string} manualStudyGuide - Custom study guide text
  * @param {string} manualHandout - Custom handout text
- * @returns {string} - Combined report prompt for NotebookLM
+ * @returns {Object} - Structured prompt data: { basis, inputPrompts, outputPrompt }
  */
 export function generateReportPrompt(
     selectedPrompts = [],
@@ -179,17 +225,17 @@ export function generateReportPrompt(
     manualHandout = '',
     dashboardSettings = {}
 ) {
-    let report = `# NotebookLM Combined Report Prompt\n\n`;
+    // 1. Generate Basis
+    const basis = generateReportBasis(selectedPrompts, studyGuideOptions, handoutOptions, dashboardSettings);
+
+    // 2. Generate Input Prompts
+    const inputPrompts = generateSourcePrompts(selectedPrompts);
+
+    // 3. Generate Output Prompt
+    let report = `# NotebookLM Final Combined Report Prompt\n\n`;
 
     if (selectedPrompts && selectedPrompts.length > 0) {
         report += `Generated from ${selectedPrompts.length} selected template(s)\n\n`;
-
-        // List selected files
-        report += `## Source Files\n`;
-        selectedPrompts.forEach((p, idx) => {
-            report += `${idx + 1}. ${p.filename} (${p.source})\n`;
-        });
-        report += `\n`;
     } else if (dashboardSettings && dashboardSettings.topic) {
         report += `Generated for Topic: ${dashboardSettings.topic}\n`;
         if (dashboardSettings.grade) report += `Grade: ${dashboardSettings.grade}\n`;
@@ -198,7 +244,7 @@ export function generateReportPrompt(
     } else {
         // Fallback for empty state
         if (!manualStudyGuide && !manualHandout && Object.keys(studyGuideOptions).length === 0) {
-            return '';
+            return { basis, inputPrompts, outputPrompt: '' };
         }
     }
 
@@ -279,17 +325,6 @@ export function generateReportPrompt(
         report += `\n`;
     }
 
-    // Add individual prompts
-    if (selectedPrompts && selectedPrompts.length > 0) {
-        report += `## Detailed Source Prompts\n\n`;
-        report += `---\n\n`;
-        selectedPrompts.forEach((p, idx) => {
-            report += `### Source ${idx + 1}: ${p.filename}\n\n`;
-            report += p.prompt;
-            report += `\n\n---\n\n`;
-        });
-    }
-
     // Footer instructions
     report += `## Generation Instructions (IMPORTANT)\n`;
     report += `Please synthesize all the above sources and generate the following distinct sections in a single response:\n\n`;
@@ -314,5 +349,9 @@ export function generateReportPrompt(
     report += `2. Do not combine the CSV and the Study Material into the same block.\n`;
     report += `3. Use clear separators between sections.\n`;
 
-    return report;
+    return {
+        basis,
+        inputPrompts,
+        outputPrompt: report
+    };
 }
