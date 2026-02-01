@@ -7,48 +7,80 @@ const GuidedModePopup = ({ isOpen, onClose, context }) => {
     const [copiedOutput, setCopiedOutput] = useState(false);
     const [outputPromptText, setOutputPromptText] = useState('');
 
-    // Generate Input Sources Keywords
+    // Generate Input Sources Keywords optimized for NotebookLM Search
     const generateInputPrompt = () => {
-        const parts = [];
-        if (context.targetUrls) parts.push(context.targetUrls);
-        if (context.topic) parts.push(`Topic: ${context.topic}`);
-        if (context.grade) parts.push(`Grade: ${context.grade}`);
-        if (context.subject) parts.push(`Subject: ${context.subject}`);
-        if (context.subtopics) parts.push(`Subtopics: ${context.subtopics}`);
-        if (context.keywordsScrape) parts.push(`Keywords: ${context.keywordsScrape}`);
-        return parts.length > 0 ? parts.join('\n') : 'No input keywords configured';
+        if (context.targetUrls && !context.searchWeb) {
+            return `Please analyze the following URLs:\n${context.targetUrls}`;
+        }
+
+        const queryParts = [];
+        if (context.grade) queryParts.push(`Grade ${context.grade}`);
+        if (context.subject) queryParts.push(context.subject);
+        if (context.topic) queryParts.push(`on the topic of '${context.topic}'`);
+
+        let query = `Search for high-quality educational resources, detailed study materials, and structured worksheets for ${queryParts.join(' ')}.`;
+
+        if (context.subtopics) query += ` Focus on these subtopics: ${context.subtopics}.`;
+        if (context.keywordsScrape) query += ` Include information about: ${context.keywordsScrape}.`;
+
+        query += ` Please prioritize results from reliable educational websites like byjus.com, ncert.nic.in, and khanacademy.org.`;
+
+        return query;
     };
 
-    // Generate Output Report Keywords
+    // Generate Output Report Keywords with multiple format support
     const generateOutputPrompt = () => {
-        const tasks = [];
+        const sections = [];
 
-        // Difficulty level
+        // SECTION 1: HEADER & CONTEXT
+        const header = [];
+        header.push(`# OUTPUT GENERATION FOR: ${context.topic || 'Analysis'}`);
+        header.push(`Target Audience: Grade ${context.grade || 'General'} ${context.subject || ''}`);
+
         const diffMap = {
             'Identify': 'Focus on definitions, basic facts, and identification of key terms. (Easy Level)',
             'Connect': 'Focus on relationships, cause-and-effect, and connecting concepts. (Medium Level)',
             'Extend': 'Focus on applications, scenario-based analysis, and extending concepts. (Hard Level)'
         };
-        tasks.push(`[DIFFICULTY: ${context.difficulty || 'Connect'}]\n${diffMap[context.difficulty] || diffMap['Connect']} `);
+        header.push(`[DIFFICULTY: ${context.difficulty || 'Connect'}] ${diffMap[context.difficulty] || diffMap['Connect']}`);
 
+        if (context.keywordsReport) header.push(`[FOCUS KEYWORDS]: ${context.keywordsReport}`);
+        sections.push(header.join('\n'));
+
+        // SECTION 2: DATA EXPORT (CSV)
+        const csvTask = [];
+        csvTask.push(`### PART 1: DATA EXPORT (CSV FORMAT)`);
+        csvTask.push(`Generate a raw CSV code block containing the key facts, questions, and data points from the sources.`);
+        csvTask.push(`CRITICAL: Use a valid CSV structure (comma separated, quotes for escaping). No conversational text inside this section.`);
+        sections.push(csvTask.join('\n'));
+
+        // SECTION 3: STUDY MATERIAL (WORD)
+        const studyTask = [];
+        studyTask.push(`### PART 2: STUDY MATERIAL (WORD/MARKDOWN FORMAT)`);
         if (context.outputs?.studyGuide) {
-            tasks.push('[TASK: STUDY GUIDE]\nCreate a detailed study guide extracting Anchor Concepts and key definitions.');
+            studyTask.push(`- **Study Guide**: Create a detailed study guide with Anchor Concepts, key definitions, and detailed explanations.`);
         }
         if (context.outputs?.quiz) {
             const q = context.quizConfig || {};
-            tasks.push(`[TASK: QUIZ]\nCreate a quiz with ${q.mcq || 10} MCQs, ${q.ar || 5} Assertion - Reasoning, and ${q.detailed || 3} Detailed Answer questions.Include Answer Key.`);
+            studyTask.push(`- **Quiz**: Create a quiz with ${q.mcq || 10} MCQs, ${q.ar || 5} Assertion-Reasoning, and ${q.detailed || 3} Detailed Answer questions. Include a separate Answer Key.`);
         }
         if (context.outputs?.handout) {
-            tasks.push('[TASK: HANDOUT]\nCreate a Visual Handout with a one-page summary and diagrams.');
-        }
-        if (context.keywordsReport) {
-            tasks.push(`[FOCUS KEYWORDS]: ${context.keywordsReport} `);
+            studyTask.push(`- **Handout**: Create a Visual Handout script with a one-page summary and descriptions for relevant diagrams.`);
         }
         if (context.quizConfig?.custom) {
-            tasks.push(`[CUSTOM INSTRUCTIONS]: ${context.quizConfig.custom} `);
+            studyTask.push(`- **Additional Instructions**: ${context.quizConfig.custom}`);
         }
+        sections.push(studyTask.join('\n'));
 
-        return tasks.join('\n\n');
+        // SECTION 4: FINAL INSTRUCTIONS
+        const finalInstructions = [];
+        finalInstructions.push(`### GENERATION RULES:`);
+        finalInstructions.push(`1. Provide BOTH the CSV block and the Study Material in the same response.`);
+        finalInstructions.push(`2. Keep sections clearly separated.`);
+        finalInstructions.push(`3. Ensure all content is educationally sound and matches the specified difficulty.`);
+        sections.push(finalInstructions.join('\n'));
+
+        return sections.join('\n\n---\n\n');
     };
 
     const copyToClipboard = (text) => {

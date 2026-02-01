@@ -10,7 +10,8 @@ const STUDY_GUIDE_OPTIONS = [
     { id: 'clarification', label: 'Clarification', description: 'Explanation of complex ideas' },
     { id: 'examples', label: 'Examples', description: 'Illustrative examples' },
     { id: 'summary', label: 'Summary', description: 'Concise overview' },
-    { id: 'key-terms', label: 'Key Terms', description: 'Important vocabulary' }
+    { id: 'key-terms', label: 'Key Terms', description: 'Important vocabulary' },
+    { id: 'csv-format', label: 'CSV/Excel Format', description: 'Output in required CSV headers' }
 ];
 
 const StudyGuideOptions = ({ selectedOptions, onOptionChange, manualEntry, onManualEntryChange }) => {
