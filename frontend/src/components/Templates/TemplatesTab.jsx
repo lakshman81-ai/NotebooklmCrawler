@@ -57,6 +57,27 @@ const TemplatesTab = () => {
         }
     });
 
+    // Load dashboard settings from localStorage on mount
+    useEffect(() => {
+        const savedContext = localStorage.getItem('dashboard_context');
+        if (savedContext) {
+            try {
+                const parsed = JSON.parse(savedContext);
+                setDashboardSettings(prev => ({
+                    ...prev,
+                    grade: parsed.grade || prev.grade,
+                    subject: parsed.subject || prev.subject,
+                    topic: parsed.topic || prev.topic,
+                    difficulty: parsed.difficulty || prev.difficulty,
+                    outputs: parsed.outputs || prev.outputs,
+                    quizConfig: parsed.quizConfig || prev.quizConfig
+                }));
+            } catch (e) {
+                console.error('Failed to load dashboard context for Templates:', e);
+            }
+        }
+    }, []);
+
     // Handle template source selection
     const handleSourceSelection = async (id, checked, fileInfo) => {
         const newSelected = new Set(selectedSources);
@@ -284,7 +305,7 @@ const TemplatesTab = () => {
                     <FileSpreadsheet className="w-7 h-7" />
                 </div>
                 <div>
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Templates</h2>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Templates/Notebooklm O/P Prompt Generator</h2>
                     <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mt-1">
                         Generate NotebookLM prompts from Excel files
                     </p>
