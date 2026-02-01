@@ -333,6 +333,24 @@ async def read_template_file(request: TemplateFileRequest):
         raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
 
 
+@app.get("/api/proxy/headers")
+async def proxy_headers(url: str):
+    """Fetch CSV headers from an external URL (e.g. GitHub raw)"""
+    # SSRF Protection: Whitelist allowed domains
+    allowed_domains = ["raw.githubusercontent.com", "github.com", "gist.githubusercontent.com"]
+    from urllib.parse import urlparse
+    parsed_url = urlparse(url)
+    if parsed_url.netloc not in allowed_domains:
+        raise HTTPException(status_code=403, detail="Domain not allowed for proxy")
+
+    try:
+        # Use pandas to read just the headers
+        df = pd.read_csv(url, nrows=0)
+        return {"headers": df.columns.tolist()}
+    except Exception as e:
+        # Fallback for non-CSV or errors
+        raise HTTPException(status_code=500, detail=f"Failed to fetch headers: {str(e)}")
+
 @app.post("/api/template/upload")
 async def upload_template_file(file: UploadFile = File(...)):
     """Upload and parse user's Excel/CSV file"""
