@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, Zap, AlertCircle } from 'lucide-react';
+import { FileSpreadsheet, Zap, AlertCircle, Copy } from 'lucide-react';
 import TemplateSourcesPanel, { TEMPLATE_SOURCES } from './TemplateSourcesPanel';
 import FileUploadPanel from './FileUploadPanel';
 import PromptOutputBox from './PromptOutputBox';
@@ -29,9 +29,11 @@ const TemplatesTab = () => {
     const [manualHandout, setManualHandout] = useState('');
 
     // State for final report
-    const [reportOutput, setReportOutput] = useState('');
-    const [editableOutput, setEditableOutput] = useState('');
-    const [copiedReport, setCopiedReport] = useState(false);
+    const [reportBasis, setReportBasis] = useState('');
+    const [inputPrompts, setInputPrompts] = useState('');
+    const [outputPrompt, setOutputPrompt] = useState('');
+    const [copiedInput, setCopiedInput] = useState(false);
+    const [copiedOutput, setCopiedOutput] = useState(false);
 
     // State for error messages
     const [errorMessage, setErrorMessage] = useState(null);
@@ -240,7 +242,7 @@ const TemplatesTab = () => {
     // Generate final report
     const handleGenerateReport = () => {
         const selectedPromptData = generatedPrompts.filter(p => selectedPrompts.has(p.id));
-        const report = generateReportPrompt(
+        const { basis, inputPrompts, outputPrompt } = generateReportPrompt(
             selectedPromptData,
             studyGuideOptions,
             handoutOptions,
@@ -249,8 +251,9 @@ const TemplatesTab = () => {
             dashboardSettings
         );
 
-        setReportOutput(report);
-        setEditableOutput(report);
+        setReportBasis(basis);
+        setInputPrompts(inputPrompts);
+        setOutputPrompt(outputPrompt);
         setErrorMessage(null);
 
         // Scroll to report
@@ -259,11 +262,18 @@ const TemplatesTab = () => {
         }, 100);
     };
 
-    // Copy report to clipboard
-    const copyReportToClipboard = () => {
-        navigator.clipboard.writeText(editableOutput);
-        setCopiedReport(true);
-        setTimeout(() => setCopiedReport(false), 2000);
+    // Copy input prompts to clipboard
+    const copyInputPrompts = () => {
+        navigator.clipboard.writeText(inputPrompts);
+        setCopiedInput(true);
+        setTimeout(() => setCopiedInput(false), 2000);
+    };
+
+    // Copy final output prompt to clipboard
+    const copyOutputPrompt = () => {
+        navigator.clipboard.writeText(outputPrompt);
+        setCopiedOutput(true);
+        setTimeout(() => setCopiedOutput(false), 2000);
     };
 
     return (
@@ -378,7 +388,7 @@ const TemplatesTab = () => {
             </div>
 
             {/* Report Output */}
-            {reportOutput && (
+            {reportBasis && (
                 <div id="report-output" className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-[2rem] p-8 shadow-xl space-y-6">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
@@ -390,37 +400,62 @@ const TemplatesTab = () => {
                     {/* Input Basis - Read Only */}
                     <div className="space-y-2">
                         <label className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                            Input Basis (Read-only)
+                            Input Basis (Read-only Preview of Variables)
                         </label>
                         <textarea
                             readOnly
-                            value={reportOutput}
-                            className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-700 resize-none focus:outline-none"
+                            value={reportBasis}
+                            className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-sans text-slate-700 resize-none focus:outline-none"
                         />
-                        <p className="text-[10px] text-slate-400 italic">Source files and structure information</p>
+                        <p className="text-[10px] text-slate-400 italic">Summary of variables and settings used for generation</p>
+                    </div>
+
+                    {/* Source Input Prompts - Editable with Copy */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                                Source Input Prompts (Editable)
+                            </label>
+                            <button
+                                onClick={copyInputPrompts}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${copiedInput
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-white text-indigo-700 hover:bg-indigo-100 shadow-sm border border-indigo-200'
+                                    }`}
+                            >
+                                {copiedInput ? '✓ Copied!' : <span className="flex items-center gap-1"><Copy className="w-3 h-3" /> Copy</span>}
+                            </button>
+                        </div>
+                        <textarea
+                            value={inputPrompts}
+                            onChange={(e) => setInputPrompts(e.target.value)}
+                            className="w-full h-56 p-4 bg-white border-2 border-indigo-300 rounded-xl text-sm font-mono text-slate-700 resize-y focus:outline-none focus:border-indigo-500"
+                            placeholder="Individual source prompts..."
+                        />
+                        <p className="text-[10px] text-slate-400 italic">Prompts generated for each selected file</p>
                     </div>
 
                     {/* Output Prompt - Editable */}
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <label className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                                Output Prompt (Editable)
+                                Final Output Prompt (Editable)
                             </label>
                             <button
-                                onClick={copyReportToClipboard}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${copiedReport
+                                onClick={copyOutputPrompt}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${copiedOutput
                                     ? 'bg-emerald-100 text-emerald-700'
                                     : 'bg-white text-indigo-700 hover:bg-indigo-100 shadow-sm border border-indigo-200'
                                     }`}
                             >
-                                {copiedReport ? '✓ Copied!' : '📋 Copy'}
+                                {copiedOutput ? '✓ Copied!' : <span className="flex items-center gap-1"><Copy className="w-3 h-3" /> Copy</span>}
                             </button>
                         </div>
                         <textarea
-                            value={editableOutput}
-                            onChange={(e) => setEditableOutput(e.target.value)}
-                            className="w-full h-56 p-4 bg-white border-2 border-indigo-300 rounded-xl text-xs font-mono text-slate-700 resize-y focus:outline-none focus:border-indigo-500"
-                            placeholder="Edit the prompt as needed before copying..."
+                            value={outputPrompt}
+                            onChange={(e) => setOutputPrompt(e.target.value)}
+                            className="w-full h-56 p-4 bg-white border-2 border-indigo-300 rounded-xl text-sm font-mono text-slate-700 resize-y focus:outline-none focus:border-indigo-500"
+                            placeholder="Edit the final prompt as needed before copying..."
                         />
                         <p className="text-[10px] text-slate-400 italic">Edit this prompt before copying to NotebookLM</p>
                     </div>
