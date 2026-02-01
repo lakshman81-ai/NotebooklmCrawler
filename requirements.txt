@@ -1,0 +1,11 @@
+playwright==1.42.0
+python-docx
+pandas
+openpyxl
+pydantic
+python-dotenv
+beautifulsoup4==4.12.3
+pytest
+flake8
+mypy
+streamlit==1.32.0

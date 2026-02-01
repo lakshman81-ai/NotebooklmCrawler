@@ -1,0 +1,138 @@
+game_type,difficulty,text1,text2,answer,option1,option2,option3,option4,hint
+pattern-forge,Easy,2 4 6 8 ?,Add 2 each time,10,10,12,9,14,Count by 2s
+pattern-forge,Easy,🔴 🔵 🔴 🔵 ?,Alternating colors,🔴,🔴,🔵,🟢,🟡,Colors alternate
+pattern-forge,Easy,1 2 3 4 ?,Simple counting,5,5,6,4,7,Count up by 1
+pattern-forge,Easy,A B C D ?,Alphabet order,E,E,F,G,H,Next letter
+pattern-forge,Easy,5 10 15 20 ?,Count by 5s,25,25,30,22,35,Add 5
+pattern-forge,Medium,3 6 9 12 ?,Multiply by 3,15,15,14,16,18,Count by 3s
+pattern-forge,Medium,2 4 8 16 ?,Each number doubles,32,32,24,20,64,Double each time
+pattern-forge,Medium,🌟 🌙 🌟 🌙 🌟 ?,Star and moon pattern,🌙,🌙,🌟,☀️,⭐,Alternating pattern
+pattern-forge,Medium,10 20 30 40 ?,Count by 10s,50,50,60,45,100,Add 10
+pattern-forge,Medium,Z Y X W ?,Backward alphabet,V,V,U,T,A,Go backwards
+pattern-forge,Hard,1 1 2 3 5 ?,Add previous two,8,8,6,7,10,Fibonacci sequence
+pattern-forge,Hard,1 4 9 16 ?,Square numbers,25,25,20,24,36,1²=1 2²=4 3²=9...
+pattern-forge,Hard,3 6 12 24 ?,Doubling numbers,48,48,36,30,60,x2 each time
+pattern-forge,Hard,🔴 🔵 🟢 🔴 🔵 ?,Three color pattern,🟢,🟢,🔴,🔵,🟡,Repeats every 3
+pattern-forge,Hard,27 9 3 1 ?,Divide by 3,1/3,1/3,0,1,3,Division pattern
+logic-lab,Easy,"All dogs have tails. Max is a dog.",Does Max have a tail?,Yes,Yes,No,Maybe,Sometimes,Think about what we know about dogs
+logic-lab,Easy,"Red is bigger than Blue. Green is smaller than Blue.",Which is biggest?,Red,Red,Blue,Green,Same size,Compare step by step
+logic-lab,Easy,"If it rains, grass gets wet. It is raining.",Is the grass wet?,Yes,Yes,No,Maybe,Only sometimes,Cause and effect
+logic-lab,Easy,"Cats meow. Fluffy is a cat.",Does Fluffy meow?,Yes,Yes,No,Maybe,Bark,Drawing conclusions
+logic-lab,Medium,"Amy is taller than Ben. Ben is taller than Carl.",Who is shortest?,Carl,Amy,Ben,Carl,All same,Order from tall to short
+logic-lab,Medium,"All birds have feathers. A penguin is a bird.",Does a penguin have feathers?,Yes,Yes,No,Maybe,Only some,Penguins are birds
+logic-lab,Medium,"No fish can fly. Nemo is a fish.",Can Nemo fly?,No,No,Yes,Maybe,Sometimes,Direct rule
+logic-lab,Medium,"A square has 4 sides. This shape has 3 sides.",Is it a square?,No,No,Yes,Maybe,Almost,Definition check
+logic-lab,Hard,"Tom has more apples than Sue. Sue has more than Pat. Pat has 3 apples.",Tom has at least how many?,5,5,4,3,6,Work backwards
+logic-lab,Hard,"In a race: A is not first. B beats C. C beats A.",Who wins the race?,B,A,B,C,Tie,Think about order
+logic-lab,Hard,"Start with 5. Double it. Subtract 2. Divide by 4.",What's the number?,2,2,4,3,5,Follow steps carefully
+logic-lab,Hard,"Every Zorp is a Blip. No Blip is a Crag.",Is a Zorp a Crag?,No,No,Yes,Maybe,Sometimes,Set logic
+odd-wizard,Easy,"Which one is NOT a fruit?",Find the odd one,Car,Apple,Car,Banana,Orange,Three are fruits
+odd-wizard,Easy,"Which doesn't belong?",Find the odd one,Triangle,Dog,Cat,Bird,Triangle,Three are animals
+odd-wizard,Easy,"Which is not a color?",Find the odd one,Table,Red,Blue,Table,Green,Material object
+odd-wizard,Easy,"Which is not a number?",Find the odd one,A,1,2,A,3,Letter vs Numbers
+odd-wizard,Medium,"Which number doesn't fit?",Find the odd one,7,2,4,6,7,Look at odd vs even
+odd-wizard,Medium,"Which doesn't belong?",Find the odd one,Whale,Lion,Elephant,Whale,Tiger,One lives in water
+odd-wizard,Medium,"Which is not a shape?",Find the odd one,Blue,Circle,Square,Blue,Triangle,Color vs Shapes
+odd-wizard,Medium,"Which is not weather?",Find the odd one,Chair,Rain,Snow,Chair,Wind,Furniture
+odd-wizard,Hard,"15 20 25 33 35",Not divisible by 5,33,15,20,25,33,Check divisibility
+odd-wizard,Hard,"Mercury Venus Earth Mars",Which is not a planet?,Moon,Mercury,Venus,Moon,Mars,Planets vs moons
+odd-wizard,Hard,"Which has no legs?",Find the odd one,Snake,Dog,Cat,Snake,Bird,Leg count
+odd-wizard,Hard,"London Paris NewYork France",Which is a country?,France,London,Paris,France,NewYork,City vs Country
+sorting-station,Easy,"Order from smallest to largest: 5 2 8 3",Which is first?,2,5,2,8,3,Find the smallest
+sorting-station,Easy,"What comes first in the alphabet?",Which letter starts earliest,A,D,A,C,B,ABC order
+sorting-station,Easy,"Smallest Number: 10 50 5 100",Which is smallest?,5,10,50,5,100,Value comparison
+sorting-station,Easy,"First meal of the day?",Which comes first?,Breakfast,Dinner,Lunch,Breakfast,Snack,Time of day
+sorting-station,Medium,"Order morning to evening: Lunch Breakfast Dinner",What's first?,Breakfast,Lunch,Breakfast,Dinner,Snack,Think about your day
+sorting-station,Medium,"Order by size: Elephant Mouse Horse",Smallest first?,Mouse,Elephant,Mouse,Horse,All same,Compare sizes
+sorting-station,Medium,"Order: Baby Adult Child",Youngest first,Baby,Baby,Child,Adult,Old,Age Stages
+sorting-station,Medium,"Fastest to Slowest: Plane Car Bike",Fastest?,Plane,Plane,Car,Bike,Walk,Speed comparison
+sorting-station,Hard,"Order: Plant seed → ? → Water → Harvest",What's step 2?,Dig hole,Dig hole,Harvest,Plant seed,Wait,Growing process
+sorting-station,Hard,"Caterpillar → ? → Butterfly",What's in between?,Cocoon,Cocoon,Egg,Caterpillar,Moth,Life cycle
+sorting-station,Hard,"Seconds Minutes ? Days",What fits?,Hours,Hours,Weeks,Months,Years,Time units
+sorting-station,Hard,"Freezing ? Boiling",Middle temperature?,Warm,Cold,Warm,Hot,Ice,Temperature scale
+code-breaker,Easy,3-1-20,A=1 B=2 C=3...,CAT,CAT,DOG,BAT,RAT,C=3 A=1 T=20
+code-breaker,Easy,4-15-7,A=1 B=2 C=3...,DOG,DOG,CAT,LOG,FOG,D=4 O=15 G=7
+code-breaker,Easy,2-5-4,A=1 B=2 C=3...,BED,BED,RED,FED,LED,B=2 E=5 D=4
+code-breaker,Easy,16-5-14,A=1 B=2...,PEN,PEN,HEN,DEN,TEN,P=16 E=5 N=14
+code-breaker,Medium,8-1-20,A=1 B=2 C=3...,HAT,HAT,BAT,CAT,RAT,H=8 A=1 T=20
+code-breaker,Medium,19-21-14,A=1 B=2 C=3...,SUN,SUN,FUN,RUN,GUN,S=19 U=21 N=14
+code-breaker,Medium,2-9-7,A=1 B=2...,BIG,BIG,DIG,FIG,PIG,B=2 I=9 G=7
+code-breaker,Medium,13-1-14,A=1 B=2...,MAN,MAN,PAN,FAN,VAN,M=13 A=1 N=14
+code-breaker,Hard,13-15-15-14,A=1 B=2 C=3...,MOON,MOON,NOON,SOON,BOON,M=13 O=15 N=14
+code-breaker,Hard,2-15-15-11,A=1 B=2 C=3...,BOOK,BOOK,COOK,LOOK,TOOK,B=2 O=15 K=11
+code-breaker,Hard,6-9-19-8,A=1 B=2...,FISH,FISH,WISH,DISH,SWISH,F=6 I=9 S=19 H=8
+code-breaker,Hard,20-18-5-5,A=1 B=2...,TREE,TREE,FREE,KNEE,FLEE,T=20 R=18 E=5 E=5
+memory-matrix,Easy,3,grid_size,3x3,,,,,Remember 3 cells in a 3x3 grid
+memory-matrix,Easy,4,grid_size,3x3,,,,,Remember 4 cells in a 3x3 grid
+memory-matrix,Easy,3,grid_size,3x3,,,,,Identify 3 distinct spots
+memory-matrix,Easy,4,grid_size,3x3,,,,,Pattern of 4
+memory-matrix,Medium,5,grid_size,4x4,,,,,Remember 5 cells in a 4x4 grid
+memory-matrix,Medium,6,grid_size,4x4,,,,,Remember 6 cells in a 4x4 grid
+memory-matrix,Medium,5,grid_size,4x4,,,,,5 spots spread out
+memory-matrix,Medium,6,grid_size,4x4,,,,,6 spots cluster
+memory-matrix,Hard,7,grid_size,5x5,,,,,Remember 7 cells in a 5x5 grid
+memory-matrix,Hard,8,grid_size,5x5,,,,,Remember 8 cells in a 5x5 grid
+memory-matrix,Hard,9,grid_size,5x5,,,,,9 cell complex pattern
+memory-matrix,Hard,8,grid_size,5x5,,,,,Scatter 8
+sequence-sprint,Easy,3,sequence_length,emojis,🔴,🔵,🟢,🟡,Remember 3 items
+sequence-sprint,Easy,4,sequence_length,numbers,1,2,3,4,Remember 4 numbers
+sequence-sprint,Easy,4,sequence_length,emojis,🟣,🟠,⭐,💎,Pattern of 4
+sequence-sprint,Medium,5,sequence_length,emojis,🔴,🔵,🟢,🟡,Remember 5 items
+sequence-sprint,Medium,6,sequence_length,numbers,1,2,3,4,Remember 6 numbers
+sequence-sprint,Medium,5,sequence_length,mixed,A,1,B,2,Mixed sequence
+sequence-sprint,Hard,7,sequence_length,emojis,🔴,🔵,🟢,🟡,Remember 7 items
+sequence-sprint,Hard,8,sequence_length,mixed,🔴,🔵,A,B,Remember 8 mixed items
+sequence-sprint,Hard,9,sequence_length,numbers,9,8,7,6,Long reverse sequence
+path-planner,Easy,3,grid_size,simple,⬆️,➡️,⬇️,⬅️,3x3 grid with simple path
+path-planner,Easy,3,grid_size,simple,⬆️,➡️,⬇️,⬅️,3x3 grid avoid 1 obstacle
+path-planner,Easy,3,grid_size,simple,⬆️,➡️,⬇️,⬅️,Straight shot
+path-planner,Medium,4,grid_size,obstacles,⬆️,➡️,⬇️,⬅️,4x4 grid with obstacles
+path-planner,Medium,4,grid_size,collect,⬆️,➡️,⬇️,⬅️,4x4 grid collect stars
+path-planner,Medium,4,grid_size,obstacles,⬆️,➡️,⬇️,⬅️,Navigate around rocks
+path-planner,Hard,5,grid_size,complex,⬆️,➡️,⬇️,⬅️,5x5 grid complex path
+path-planner,Hard,5,grid_size,multi,⬆️,➡️,⬇️,⬅️,5x5 grid multiple goals
+path-planner,Hard,5,grid_size,complex,⬆️,➡️,⬇️,⬅️,Long winding path
+data-detective,Easy,3,bar_chart,max,,,,,Find highest value
+data-detective,Easy,3,bar_chart,min,,,,,Find lowest value
+data-detective,Medium,4,pie_chart,max,,,,,Largest slice
+data-detective,Medium,4,line_chart,trend,,,,,Line going up/down
+data-detective,Hard,5,pie_chart,sum,,,,,Sum of two slices
+data-detective,Hard,5,bar_chart,compare,,,,,Compare two values
+venn-voyager,Easy,red-fruit,2-sets,,,,,Sort red and fruit
+venn-voyager,Easy,round-food,2-sets,,,,,Sort round and food
+venn-voyager,Medium,animal-green,2-sets,,,,,Sort animals and green things
+venn-voyager,Medium,yellow-hot,2-sets,,,,,Sort yellow and hot things
+venn-voyager,Hard,bird-fly,2-sets,,,,,Birds vs things that fly
+venn-voyager,Hard,vehicle-wheels,2-sets,,,,,Vehicles vs things with wheels
+mirror-match,Easy,3x3,horizontal,simple,,,,,Simple pattern reflection
+mirror-match,Easy,3x3,vertical,simple,,,,,Vertical reflection
+mirror-match,Medium,3x3,horizontal,complex,,,,,Complex pattern reflection
+mirror-match,Medium,3x3,vertical,complex,,,,,Vertical complex reflection
+mirror-match,Hard,4x4,horizontal,complex,,,,,Larger grid reflection
+mirror-match,Hard,4x4,vertical,complex,,,,,Larger vertical reflection
+scale-sense,Easy,2,weights,simple,,,,,Balance 2 items
+scale-sense,Easy,2,weights,simple,,,,,Simple math balance
+scale-sense,Medium,3,weights,medium,,,,,Balance 3 items
+scale-sense,Medium,3,weights,medium,,,,,A bit heavier
+scale-sense,Hard,4,weights,complex,,,,,Balance 4 items
+scale-sense,Hard,4,weights,complex,,,,,Complex weights
+d a t a - d e t e c t i v e , E a s y , H i g h e s t   V a l u e ? , B a r :   A = 1 0   B = 5 , A , A , B , C , D , T a l l e r   b a r    
+ d a t a - d e t e c t i v e , M e d i u m , S u m   o f   A + B ? , A = 1 0   B = 2 0 , 3 0 , 1 0 , 2 0 , 3 0 , 4 0 , A d d   t h e m    
+ d a t a - d e t e c t i v e , H a r d , A v e r a g e ? , 2 0   4 0   6 0 , 4 0 , 2 0 , 4 0 , 6 0 , 8 0 , M i d p o i n t    
+ v e n n - v o y a g e r , E a s y , F r u i t ? , S e t :   F o o d , A p p l e , A p p l e , C a r , D o g , B a l l , R e d   f r u i t    
+ v e n n - v o y a g e r , M e d i u m , P r i m e ? , S e t :   N u m b e r s , 7 , 7 , 4 , 9 , 1 5 , O n l y   f a c t o r s   1   a n d   s e l f    
+ v e n n - v o y a g e r , H a r d , M a m m a l    
+ data-detective,Easy,Max?,Bar: 5 10,10,10,5,2,1,High bar
+data-detective,Medium,Sum?,5+12,17,17,10,5,20,Add
+data-detective,Hard,Avg?,10 20 30,20,20,10,30,40,Mean
+venn-voyager,Easy,Pet?,Animal,Cat,Cat,Rock,Car,Sun,Living
+venn-voyager,Medium,Odd?,Numbers,3,3,2,4,6,Not even
+venn-voyager,Hard,Both?,Red and Big,Apple,Apple,Cherry,Truck,Ant,Overlap
+mirror-match,Easy,b,Mirror b,d,d,p,q,b,Flip
+mirror-match,Medium,M,Mirror M,M,M,W,E,3,Sym
+mirror-match,Hard,12,Mirror 12,51,51,12,21,15,Rev
+scale-sense,Easy,10?,Bal 10,10,10,5,2,1,Eq
+scale-sense,Medium,X+1=5,X?,4,4,1,5,6,Alg
+scale-sense,Hard,2X=10,X?,5,5,2,10,20,Div
+
+data-detective,Easy,Min?,Bar: 2 8,2,2,8,4,6,Low bar

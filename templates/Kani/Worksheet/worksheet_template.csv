@@ -1,0 +1,4 @@
+Question,Answer A,Answer B,Answer C,Answer D,Correct Answer,Hint,Know More Description,Know More Link,YouTube URL,Image URL,Type,Concept,Worksheet No.
+"Sample MCQ: What is the capital of France?","London","Berlin","Paris","Madrid","C","City of Lights","About Paris","https://en.wikipedia.org/wiki/Paris","","","MCQ","Geography",1
+"Sample TTA: Type the answer to 5 + 5","","","","","10","Count carefully","Addition Tips","https://math.com/addition","","","TTA","Math",2
+"Sample FIB: The sky is ""blue"".","","","","","blue","Look up!","","","","","FIB","Colors",3

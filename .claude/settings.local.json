@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(powershell \"Get-ChildItem -Recurse | Select-Object FullName | head -50\")",
+      "Bash(npm run dev:*)",
+      "Bash(.venvScriptspython.exe bridge.py)",
+      "Bash(timeout:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd /c \"taskkill /F /IM chrome.exe\")",
+      "Bash(cmd /c \"del /q C:\\\\Code\\\\NotebooklmCrawler\\\\outputs\\\\browser_data\\\\SingletonLock 2>nul & rd /s /q C:\\\\Code\\\\NotebooklmCrawler\\\\outputs\\\\browser_data\\\\SingletonLock 2>nul\")",
+      "Bash(python bridge.py:*)",
+      "Bash(curl:*)",
+      "Bash(tasklist:*)",
+      "Bash(wmic process:*)",
+      "Bash(ps:*)"
+    ]
+  }
+}
