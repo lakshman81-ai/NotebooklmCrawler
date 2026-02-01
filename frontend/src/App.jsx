@@ -3,8 +3,7 @@ import Dashboard from './components/Dashboard/Dashboard';
 import ConfigTab from './components/Config/ConfigTab';
 import AdminTab from './components/Admin/AdminTab';
 import TemplatesTab from './components/Templates/TemplatesTab';
-import LogsTab from './components/Logs/LogsTab';
-import { LayoutDashboard, Settings, ShieldAlert, Activity, FileSpreadsheet, Terminal } from 'lucide-react';
+import { LayoutDashboard, Settings, ShieldAlert, Activity, FileSpreadsheet } from 'lucide-react';
 
 function App() {
     const [activeTab, setActiveTab] = useState('DASHBOARD');
@@ -14,7 +13,6 @@ function App() {
         switch (activeTab) {
             case 'DASHBOARD': return <Dashboard onCompileComplete={setResults} />;
             case 'CONFIG': return <ConfigTab />;
-            case 'LOGS': return <LogsTab />;
             case 'ADMIN': return <AdminTab />;
             case 'TEMPLATES': return <TemplatesTab />;
             default: return <Dashboard />;
@@ -39,7 +37,6 @@ function App() {
                         <TabLink id="DASHBOARD" icon={<LayoutDashboard className="w-4 h-4" />} label="Dashboard" active={activeTab === 'DASHBOARD'} onClick={setActiveTab} />
                         <TabLink id="TEMPLATES" icon={<FileSpreadsheet className="w-4 h-4" />} label="Templates" active={activeTab === 'TEMPLATES'} onClick={setActiveTab} />
                         <TabLink id="CONFIG" icon={<Settings className="w-4 h-4" />} label="Config" active={activeTab === 'CONFIG'} onClick={setActiveTab} />
-                        <TabLink id="LOGS" icon={<Terminal className="w-4 h-4" />} label="Logs" active={activeTab === 'LOGS'} onClick={setActiveTab} />
                         <TabLink id="ADMIN" icon={<ShieldAlert className="w-4 h-4" />} label="Admin" active={activeTab === 'ADMIN'} onClick={setActiveTab} />
                     </nav>
 
