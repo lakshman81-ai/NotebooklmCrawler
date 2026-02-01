@@ -70,14 +70,17 @@ export function generatePromptForFile(fileData, filename, source, settings = {})
         prompt += `\n`;
     }
 
-    prompt += `**Expected Output Format:**\n`;
-    prompt += `- Maintain the same column structure in generated content\n`;
-    prompt += `- Each response should reference the appropriate columns\n`;
-    prompt += `- Preserve data relationships from the source\n\n`;
+    prompt += `**Expected Output Format (CRITICAL):**\n`;
+    prompt += `- Provide output in a valid CSV code block.\n`;
+    prompt += `- Use EXACTLY these headers in the first row: ${columns.join(',')}\n`;
+    prompt += `- Do not add, remove, or rename any columns.\n`;
+    prompt += `- Use commas as separators. Wrap any field containing commas in double quotes.\n`;
+    prompt += `- Do not include any introductory or concluding text outside the code block for the CSV data.\n`;
+    prompt += `- Preserve data relationships from the source.\n\n`;
 
     // Add input context
     prompt += `## Source Data Structure\n`;
-    prompt += `Columns: ${columns.join(', ')}\n\n`;
+    prompt += `Required Columns: ${columns.join(', ')}\n\n`;
 
     // Add difficulty context from settings
     if (settings.difficulty) {
@@ -169,25 +172,35 @@ function extractSubjectFromFilename(filename) {
  * @returns {string} - Combined report prompt for NotebookLM
  */
 export function generateReportPrompt(
-    selectedPrompts,
+    selectedPrompts = [],
     studyGuideOptions = {},
     handoutOptions = {},
     manualStudyGuide = '',
-    manualHandout = ''
+    manualHandout = '',
+    dashboardSettings = {}
 ) {
-    if (!selectedPrompts || selectedPrompts.length === 0) {
-        return '';
-    }
-
     let report = `# NotebookLM Combined Report Prompt\n\n`;
-    report += `Generated from ${selectedPrompts.length} selected template(s)\n\n`;
 
-    // List selected files
-    report += `## Source Files\n`;
-    selectedPrompts.forEach((p, idx) => {
-        report += `${idx + 1}. ${p.filename} (${p.source})\n`;
-    });
-    report += `\n`;
+    if (selectedPrompts && selectedPrompts.length > 0) {
+        report += `Generated from ${selectedPrompts.length} selected template(s)\n\n`;
+
+        // List selected files
+        report += `## Source Files\n`;
+        selectedPrompts.forEach((p, idx) => {
+            report += `${idx + 1}. ${p.filename} (${p.source})\n`;
+        });
+        report += `\n`;
+    } else if (dashboardSettings && dashboardSettings.topic) {
+        report += `Generated for Topic: ${dashboardSettings.topic}\n`;
+        if (dashboardSettings.grade) report += `Grade: ${dashboardSettings.grade}\n`;
+        if (dashboardSettings.subject) report += `Subject: ${dashboardSettings.subject}\n`;
+        report += `\n`;
+    } else {
+        // Fallback for empty state
+        if (!manualStudyGuide && !manualHandout && Object.keys(studyGuideOptions).length === 0) {
+            return '';
+        }
+    }
 
     // Add study guide options
     const activeStudyOptions = Object.entries(studyGuideOptions)
@@ -267,21 +280,39 @@ export function generateReportPrompt(
     }
 
     // Add individual prompts
-    report += `## Detailed Source Prompts\n\n`;
-    report += `---\n\n`;
-    selectedPrompts.forEach((p, idx) => {
-        report += `### Source ${idx + 1}: ${p.filename}\n\n`;
-        report += p.prompt;
-        report += `\n\n---\n\n`;
-    });
+    if (selectedPrompts && selectedPrompts.length > 0) {
+        report += `## Detailed Source Prompts\n\n`;
+        report += `---\n\n`;
+        selectedPrompts.forEach((p, idx) => {
+            report += `### Source ${idx + 1}: ${p.filename}\n\n`;
+            report += p.prompt;
+            report += `\n\n---\n\n`;
+        });
+    }
 
     // Footer instructions
-    report += `## Generation Instructions\n`;
-    report += `Please synthesize all the above sources and create:\n`;
-    report += `1. A comprehensive study guide following the specified requirements\n`;
-    report += `2. Visual handouts as requested\n`;
-    report += `3. Ensure all content is age-appropriate and educationally sound\n`;
-    report += `4. Include clear headings and structured formatting\n`;
+    report += `## Generation Instructions (IMPORTANT)\n`;
+    report += `Please synthesize all the above sources and generate the following distinct sections in a single response:\n\n`;
+
+    if (studyGuideOptions['csv-format']) {
+        report += `### SECTION 1: DATA EXPORT (CSV FORMAT)\n`;
+        report += `- Provide a raw CSV code block containing the synthesized data.\n`;
+        report += `- Follow all column headers specified in the Source Prompts above.\n`;
+        report += `- Ensure the CSV is Excel-compatible (use commas, escape with quotes).\n\n`;
+    }
+
+    report += `### SECTION 2: STUDY MATERIAL (WORD/MARKDOWN FORMAT)\n`;
+    report += `- Provide a comprehensive study guide and visual handout descriptions in structured Markdown.\n`;
+    report += `- This section should be optimized for copy-pasting into a Word document.\n`;
+    report += `- Use clear headings, bullet points, and bold text for readability.\n\n`;
+
+    report += `### SECTION 3: QUIZ & ASSESSMENT\n`;
+    report += `- If a quiz was requested, provide it here with a clear Answer Key at the end.\n\n`;
+
+    report += `GENERAL RULES:\n`;
+    report += `1. Maintain high educational quality and age-appropriateness.\n`;
+    report += `2. Do not combine the CSV and the Study Material into the same block.\n`;
+    report += `3. Use clear separators between sections.\n`;
 
     return report;
 }

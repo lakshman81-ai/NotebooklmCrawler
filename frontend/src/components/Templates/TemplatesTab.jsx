@@ -245,7 +245,8 @@ const TemplatesTab = () => {
             studyGuideOptions,
             handoutOptions,
             manualStudyGuide,
-            manualHandout
+            manualHandout,
+            dashboardSettings
         );
 
         setReportOutput(report);
