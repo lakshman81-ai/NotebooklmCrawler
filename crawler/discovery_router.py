@@ -1,5 +1,15 @@
-from typing import List
+from typing import List, Any
 from contracts.source_policy import TRUSTED_DOMAINS, SourceType
+
+async def discover_urls(page: Any, query: str, max_results: int = 10, method: str = "auto") -> List[str]:
+    """
+    Discover URLs based on the query and method.
+    """
+    if method == "ddg" or method == "auto":
+        from discovery.ddg_scraper import scrape_ddg_search
+        return await scrape_ddg_search(page, query, max_results=max_results)
+
+    return []
 
 def filter_urls(urls: List[str], source_type) -> List[str]:
     """
