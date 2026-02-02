@@ -125,29 +125,60 @@ async def execute_pipeline(req: ExecutionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/logs")
-async def get_logs():
-    log_file = PROJECT_ROOT / "logs" / "pipeline.log"
-    if log_file.exists():
+async def get_logs(since: Optional[str] = None):
+    log_file = PROJECT_ROOT / "logs" / "app.log"
+    pipeline_log = PROJECT_ROOT / "logs" / "pipeline.log"
+
+    logs = []
+    status_found = "IDLE"
+
+    # 1. Determine Status from pipeline.log (legacy/robust)
+    if pipeline_log.exists():
         try:
-            with open(log_file, "r") as f:
+            with open(pipeline_log, "r") as f:
                 lines = f.readlines()
-                last_100 = lines[-100:]
+                last_100_raw = lines[-100:]
+                content_lower = "".join(last_100_raw).lower()
                 
-                # Simple logic to detect if it's finished or failed
-                status_found = "RUNNING"
-                content_lower = "".join(last_100).lower()
                 if "mission complete" in content_lower or "saved outputs to" in content_lower:
                     status_found = "COMPLETED"
                 elif any(kw in content_lower for kw in ["failed", "runtimeerror", "traceback", "timeout 15000ms", "error"]):
                     status_found = "FAILED"
-                
-                return {
-                    "logs": last_100,
-                    "status": status_found
-                }
+                elif len(lines) > 0:
+                    status_found = "RUNNING"
         except Exception:
             pass
-    return {"logs": [], "status": "IDLE"}
+
+    # 2. Read Structured Logs
+    if log_file.exists():
+        try:
+            with open(log_file, "r") as f:
+                for line in f:
+                    if not line.strip(): continue
+                    try:
+                        entry = json.loads(line)
+                        if since:
+                            if entry.get("timestamp") > since:
+                                logs.append(entry)
+                        else:
+                            logs.append(entry)
+                    except json.JSONDecodeError:
+                        continue
+        except Exception as e:
+            print(f"Error reading app.log: {e}")
+            pass
+
+    # Sort logs by timestamp
+    logs.sort(key=lambda x: x.get("timestamp", ""))
+
+    # Limit if no sync provided (initial load)
+    if not since and len(logs) > 200:
+        logs = logs[-200:]
+
+    return {
+        "logs": logs,
+        "status": status_found
+    }
 
 @app.get("/api/config/load")
 async def load_config():
