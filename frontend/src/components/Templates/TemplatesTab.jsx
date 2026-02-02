@@ -84,7 +84,9 @@ const TemplatesTab = () => {
             ar: 5,
             detailed: 3,
             custom: ''
-        }
+        },
+        keywordsScrape: '',
+        keywordsReport: ''
     });
 
     // Unified Initialization Effect (Load Config + Load State + Regenerate)
@@ -103,7 +105,9 @@ const TemplatesTab = () => {
                         subtopics: parsed.subtopics || currentSettings.subtopics,
                         difficulty: parsed.difficulty || currentSettings.difficulty,
                         outputs: parsed.outputs || currentSettings.outputs,
-                        quizConfig: parsed.quizConfig || currentSettings.quizConfig
+                        quizConfig: parsed.quizConfig || currentSettings.quizConfig,
+                        keywordsScrape: parsed.keywordsScrape || currentSettings.keywordsScrape,
+                        keywordsReport: parsed.keywordsReport || currentSettings.keywordsReport
                     };
                     setDashboardSettings(currentSettings);
                 } catch (e) {
@@ -168,12 +172,14 @@ const TemplatesTab = () => {
         const newData = new Map(selectedSourceData);
 
         if (checked) {
-            newSelected.add(id);
             // Attempt to load file data
             const data = await loadTemplateFile(fileInfo.path);
             if (data) {
+                newSelected.add(id);
                 newData.set(id, { ...fileInfo, data });
                 generatePromptForSource(id, fileInfo, data);
+            } else {
+                logGate('TemplatesTab', 'SELECT:SOURCE:FAIL', { id, error: 'Failed to load data' });
             }
         } else {
             newSelected.delete(id);
