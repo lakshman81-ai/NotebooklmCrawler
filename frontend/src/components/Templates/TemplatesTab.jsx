@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, Zap, AlertCircle, Copy } from 'lucide-react';
+import { FileSpreadsheet, Zap, AlertCircle, Copy, CheckCircle, Info } from 'lucide-react';
 import TemplateSourcesPanel, { TEMPLATE_SOURCES } from './TemplateSourcesPanel';
 import FileUploadPanel from './FileUploadPanel';
 import PromptOutputBox from './PromptOutputBox';
@@ -7,6 +7,32 @@ import StudyGuideOptions from './StudyGuideOptions';
 import HandoutOptions from './HandoutOptions';
 import { generatePromptForFile, generateReportPrompt } from './promptGenerator';
 import { templateService } from '../../services/templateService';
+import { logGate } from '../../services/loggingService';
+
+// --- Persistence Helpers ---
+const serializeState = (state) => {
+    return JSON.stringify({
+        selectedSources: Array.from(state.selectedSources),
+        selectedSourceData: Array.from(state.selectedSourceData.entries()),
+        selectedPrompts: Array.from(state.selectedPrompts),
+        generatedPrompts: state.generatedPrompts
+    });
+};
+
+const deserializeState = (json) => {
+    try {
+        const obj = JSON.parse(json);
+        return {
+            selectedSources: new Set(obj.selectedSources),
+            selectedSourceData: new Map(obj.selectedSourceData),
+            selectedPrompts: new Set(obj.selectedPrompts),
+            generatedPrompts: obj.generatedPrompts
+        };
+    } catch (e) {
+        console.error("Error deserializing state", e);
+        return null;
+    }
+};
 
 /**
  * Main Templates Tab Component
@@ -21,6 +47,9 @@ const TemplatesTab = () => {
     // State for generated prompts
     const [generatedPrompts, setGeneratedPrompts] = useState([]);
     const [selectedPrompts, setSelectedPrompts] = useState(new Set());
+
+    // State for update feedback
+    const [promptsRefreshed, setPromptsRefreshed] = useState(false);
 
     // State for study guide and handout options
     const [studyGuideOptions, setStudyGuideOptions] = useState({});
@@ -38,7 +67,7 @@ const TemplatesTab = () => {
     // State for error messages
     const [errorMessage, setErrorMessage] = useState(null);
 
-    // Settings from Dashboard context (would normally come from context provider)
+    // Settings from Dashboard context
     const [dashboardSettings, setDashboardSettings] = useState({
         grade: '',
         subject: '',
@@ -57,29 +86,82 @@ const TemplatesTab = () => {
         }
     });
 
-    // Load dashboard settings from localStorage on mount
+    // Unified Initialization Effect (Load Config + Load State + Regenerate)
     useEffect(() => {
-        const savedContext = localStorage.getItem('dashboard_context');
-        if (savedContext) {
-            try {
-                const parsed = JSON.parse(savedContext);
-                setDashboardSettings(prev => ({
-                    ...prev,
-                    grade: parsed.grade || prev.grade,
-                    subject: parsed.subject || prev.subject,
-                    topic: parsed.topic || prev.topic,
-                    difficulty: parsed.difficulty || prev.difficulty,
-                    outputs: parsed.outputs || prev.outputs,
-                    quizConfig: parsed.quizConfig || prev.quizConfig
-                }));
-            } catch (e) {
-                console.error('Failed to load dashboard context for Templates:', e);
+        const init = async () => {
+            // 1. Load Dashboard Settings
+            let currentSettings = { ...dashboardSettings };
+            const savedContext = localStorage.getItem('dashboard_context');
+            if (savedContext) {
+                try {
+                    const parsed = JSON.parse(savedContext);
+                    currentSettings = {
+                        grade: parsed.grade || currentSettings.grade,
+                        subject: parsed.subject || currentSettings.subject,
+                        topic: parsed.topic || currentSettings.topic,
+                        difficulty: parsed.difficulty || currentSettings.difficulty,
+                        outputs: parsed.outputs || currentSettings.outputs,
+                        quizConfig: parsed.quizConfig || currentSettings.quizConfig
+                    };
+                    setDashboardSettings(currentSettings);
+                } catch (e) {
+                    console.error('Failed to load dashboard context:', e);
+                }
             }
-        }
+
+            // 2. Load Persisted Tab State
+            const savedState = localStorage.getItem('templates_tab_state');
+            if (savedState) {
+                const state = deserializeState(savedState);
+                if (state) {
+                    // 3. Regenerate prompts using current dashboard settings
+                    // This ensures prompts are up-to-date even if settings changed in another tab
+                    const refreshedPrompts = state.generatedPrompts.map(p => {
+                        const fileInfo = state.selectedSourceData.get(p.id);
+                        // If we have data, regenerate. If not (e.g. data lost), keep old prompt?
+                        // Or if data missing, we can't regenerate.
+                        // With local persistence of 'selectedSourceData', we should have it.
+                        if (fileInfo && fileInfo.data) {
+                            const newPromptText = generatePromptForFile(fileInfo.data, fileInfo.filename, p.source, currentSettings);
+                            return { ...p, prompt: newPromptText };
+                        }
+                        return p;
+                    });
+
+                    setSelectedSources(state.selectedSources);
+                    setSelectedSourceData(state.selectedSourceData);
+                    setSelectedPrompts(state.selectedPrompts);
+                    setGeneratedPrompts(refreshedPrompts);
+
+                    if (refreshedPrompts.length > 0) {
+                         setPromptsRefreshed(true);
+                         setTimeout(() => setPromptsRefreshed(false), 4000);
+                    }
+                }
+            }
+        };
+        init();
     }, []);
+
+    // Persistence Effect
+    useEffect(() => {
+        const state = {
+            selectedSources,
+            selectedSourceData,
+            selectedPrompts,
+            generatedPrompts
+        };
+        try {
+            localStorage.setItem('templates_tab_state', serializeState(state));
+        } catch (e) {
+            console.warn("Failed to persist templates state (quota exceeded?)", e);
+        }
+    }, [selectedSources, selectedSourceData, selectedPrompts, generatedPrompts]);
+
 
     // Handle template source selection
     const handleSourceSelection = async (id, checked, fileInfo) => {
+        logGate('TemplatesTab', 'SELECT:SOURCE', { id, checked, fileInfo });
         const newSelected = new Set(selectedSources);
         const newData = new Map(selectedSourceData);
 
@@ -134,46 +216,6 @@ const TemplatesTab = () => {
         }
     };
 
-    // Parse CSV content
-    const parseCSV = (text) => {
-        const lines = text.trim().split('\n');
-        if (lines.length === 0) return [];
-
-        const headers = lines[0].split(',').map(h => h.trim());
-        const data = [];
-
-        for (let i = 1; i < lines.length; i++) {
-            const values = lines[i].split(',');
-            const row = {};
-            headers.forEach((header, index) => {
-                row[header] = values[index]?.trim() || '';
-            });
-            data.push(row);
-        }
-
-        return data;
-    };
-
-    // Generate placeholder data based on filename
-    const generatePlaceholderData = (path) => {
-        const filename = path.split('/').pop();
-
-        if (filename.includes('ENGLISH') || filename.includes('MATH') || filename.includes('SKILL')) {
-            return [
-                { game_type: 'sample', question: 'Sample Question 1', answer: 'Answer 1', difficulty: 'Easy', category: 'test' },
-                { game_type: 'sample', question: 'Sample Question 2', answer: 'Answer 2', difficulty: 'Medium', category: 'test' }
-            ];
-        } else if (filename.includes('biology') || filename.includes('chemistry') || filename.includes('physics') || filename.includes('math.xlsx')) {
-            return [
-                { Topic: 'Sample Topic', Concept: 'Key Concept', Details: 'Detailed information', Difficulty: 'Intermediate' }
-            ];
-        } else {
-            return [
-                { column1: 'sample data', column2: 'more data' }
-            ];
-        }
-    };
-
     // Generate prompt for a selected source
     const generatePromptForSource = (id, fileInfo, data) => {
         const source = fileInfo.path.startsWith('Kani') ? 'Kani' : 'Harshitha';
@@ -187,18 +229,27 @@ const TemplatesTab = () => {
                 filename: fileInfo.filename,
                 prompt,
                 source,
-                selected: false
+                selected: true // Auto-select by default
             }];
+        });
+
+        // Auto-select in state too
+        setSelectedPrompts(prev => {
+            const updated = new Set(prev);
+            updated.add(id);
+            return updated;
         });
     };
 
     // Handle file upload
     const handleFileUpload = async (file) => {
         try {
+            logGate('TemplatesTab', 'UPLOAD:START', { filename: file.name, size: file.size });
             // Call backend API to parse file
             const result = await templateService.uploadFile(file);
 
             if (result.success) {
+                logGate('TemplatesTab', 'UPLOAD:SUCCESS', { filename: result.filename });
                 const fileData = {
                     columns: result.columns,
                     rowCount: result.rowCount,
@@ -224,14 +275,21 @@ const TemplatesTab = () => {
                         filename: `Uploaded: ${file.name}`,
                         prompt,
                         source: 'Uploaded',
-                        selected: false
+                        selected: true // Auto-select
                     }];
+                });
+
+                setSelectedPrompts(prev => {
+                     const updated = new Set(prev);
+                     updated.add(uploadId);
+                     return updated;
                 });
 
                 setErrorMessage(null);
             }
         } catch (error) {
             console.error('Upload error:', error);
+            logGate('TemplatesTab', 'UPLOAD:ERROR', { error: error.message });
             setErrorMessage(`Failed to upload file: ${error.message}`);
         }
     };
@@ -240,6 +298,9 @@ const TemplatesTab = () => {
     const handleFileRemove = () => {
         setUploadedFile(null);
         setGeneratedPrompts(prev => prev.filter(p => !p.id.startsWith('uploaded-')));
+        // Also remove from selected prompts?
+        // Logic gets complex to find the ID. Assuming uploadId format.
+        // We'll leave it in selectedPrompts, it won't be found in generatedPrompts so it filters out on report gen.
     };
 
     // Handle prompt selection
@@ -263,6 +324,10 @@ const TemplatesTab = () => {
     // Generate final report
     const handleGenerateReport = () => {
         const selectedPromptData = generatedPrompts.filter(p => selectedPrompts.has(p.id));
+        logGate('TemplatesTab', 'GENERATE:REPORT', {
+            selectedCount: selectedPromptData.length,
+            settings: dashboardSettings
+        });
         const { basis, inputPrompts, outputPrompt } = generateReportPrompt(
             selectedPromptData,
             studyGuideOptions,
@@ -331,6 +396,19 @@ const TemplatesTab = () => {
                 </div>
             )}
 
+            {/* Success/Refreshed Banner */}
+            {promptsRefreshed && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3 animate-in slide-in-from-top-2">
+                    <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                        <p className="text-sm font-bold text-emerald-900 mb-1">Prompts Updated</p>
+                        <p className="text-xs text-emerald-700">
+                            Generated prompts have been refreshed to match your latest Dashboard settings.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Info Banner */}
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -373,7 +451,9 @@ const TemplatesTab = () => {
                                 id={prompt.id}
                                 filename={prompt.filename}
                                 prompt={prompt.prompt}
-                                selected={prompt.selected}
+                                selected={prompt.selected} // Should rely on selectedPrompts set?
+                                // Actually PromptOutputBox takes selected boolean.
+                                // We are passing prompt.selected which we updated in state.
                                 onSelect={handlePromptSelection}
                             />
                         ))}

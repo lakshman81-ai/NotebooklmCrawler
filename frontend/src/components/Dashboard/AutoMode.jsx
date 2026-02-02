@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Play, ShieldCheck, Activity, Terminal, Globe, Bot, Download, Check, Link as LinkIcon, Search, Layers, FileText, Cpu, Zap, AlertCircle, AlertTriangle, CheckCircle, BookOpen, HelpCircle, Layout, ClipboardList, Folder, ChevronRight, X, Copy, StickyNote, Clipboard } from 'lucide-react';
+import { logGate } from '../../services/loggingService';
 
 // --- Guided Mode Popup Component ---
 const GuidedModePopup = ({ isOpen, onClose, context }) => {
@@ -415,7 +416,9 @@ const AutoMode = () => {
         }
 
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+        const isValid = Object.keys(newErrors).length === 0;
+        logGate('AutoMode', 'VALIDATE:INPUT', { isValid, errors: newErrors });
+        return isValid;
     };
 
     const checkStatus = async () => {
@@ -425,10 +428,16 @@ const AutoMode = () => {
             const data = await response.json();
 
             if (data.logs) {
-                setLogs(data.logs);
+                // Handle structured logs (objects) or legacy strings
+                const formattedLogs = data.logs.map(l => {
+                    if (typeof l === 'string') return l;
+                    return `[${l.level || 'INFO'}] ${l.component ? l.component + ': ' : ''}${l.message || ''}`;
+                });
+                setLogs(formattedLogs);
 
                 // Parse logs for progress & label
-                const lastLog = data.logs[data.logs.length - 1] || "";
+                const lastEntry = data.logs[data.logs.length - 1];
+                const lastLog = lastEntry ? (typeof lastEntry === 'string' ? lastEntry : (lastEntry.message || "")) : "";
 
                 if (lastLog.includes("NotebookLM")) { setProgress(30); setProgressLabel("NOTEBOOKLM_DRIVER_ACTIVE"); }
                 else if (lastLog.includes("uploaded") || lastLog.includes("Source Discovery")) { setProgress(50); setProgressLabel("SOURCE_ACQUISITION"); }
@@ -467,8 +476,10 @@ const AutoMode = () => {
     };
 
     const handleLaunch = async () => {
+        logGate('AutoMode', 'LAUNCH:ENTRY', { context, config });
         if (!validateInput()) {
             setLogs(prev => [`[VALIDATION_ERROR] Check input fields`, ...prev]);
+            logGate('AutoMode', 'LAUNCH:INVALID', { errors });
             return;
         }
 
@@ -476,10 +487,12 @@ const AutoMode = () => {
         if (config.notebooklmGuided) {
             setShowGuidedPopup(true);
             setLogs(prev => ['[GUIDED MODE] Showing prompts for manual NotebookLM use', ...prev]);
+            logGate('AutoMode', 'LAUNCH:GUIDED', { context });
             return;
         }
 
         setStatus('RUNNING');
+        logGate('AutoMode', 'LAUNCH:START', { timestamp: Date.now() });
         setActiveTab('INPUT');
         setProgress(5);
         setLogs(['[SYSTEM] Initiating mission protocol...', `[CONFIG] Source: ${context.intelligenceSource} | Web Search: ${context.searchWeb ? 'ON' : 'OFF'}`]);
@@ -527,6 +540,7 @@ const AutoMode = () => {
                 throw new Error(data.detail || 'Execution failed');
             }
         } catch (error) {
+            logGate('AutoMode', 'LAUNCH:ERROR', { error: error.message });
             setLogs(prev => [`[CRITICAL] ${error.message}`, ...prev]);
             setStatus('FAILED');
         }

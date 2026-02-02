@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Download, Upload, Save, Clock, Globe, Bot, Cpu, Server, AlertCircle, Code, CheckCircle, Info, Zap, FolderOpen, Shield } from 'lucide-react';
-import { logInfo, logError, logWarn, setWorkflow, advanceWorkflow, endWorkflow } from '../../services/loggingService';
+import { logInfo, logError, logWarn, logGate, setWorkflow, advanceWorkflow, endWorkflow } from '../../services/loggingService';
 
 // --- Local Storage Utilities ---
 const CONFIG_STORAGE_KEY = 'orchestration_cockpit_config';
@@ -92,6 +92,7 @@ const ConfigTab = () => {
     // Load config from localStorage and backend on mount
     useEffect(() => {
         const loadConfig = async () => {
+            logGate('ConfigTab', 'LOAD:ENTRY', { timestamp: Date.now() });
             logInfo('ConfigTab', 'loadConfig', 'Loading configuration...');
             // Try local storage first (fastest)
             const localConfig = loadFromLocalStorage(CONFIG_STORAGE_KEY);
@@ -124,6 +125,7 @@ const ConfigTab = () => {
                 const response = await fetch('http://localhost:8000/api/config/load');
                 if (response.ok) {
                     const data = await response.json();
+                    logGate('ConfigTab', 'LOAD:SUCCESS', { source: 'backend', data });
                     logInfo('ConfigTab', 'loadConfig', 'Config loaded from backend', { backendConfig: data });
                     setConfig(prev => ({
                         ...prev,
@@ -142,9 +144,11 @@ const ConfigTab = () => {
                     setLoaded(true);
                 }
             } catch (e) {
+                logGate('ConfigTab', 'LOAD:WARN', { message: 'Backend unavailable' });
                 logWarn('ConfigTab', 'loadConfig', 'Backend not available, using localStorage only', { error: e.message });
             }
 
+            logGate('ConfigTab', 'LOAD:EXIT', { loaded });
             if (!loaded) {
                 setLoaded(true);
             }
@@ -154,7 +158,15 @@ const ConfigTab = () => {
 
     const handleSave = async () => {
         setSaving(true);
-        logInfo('ConfigTab', 'handleSave', 'Saving configuration...', { config });
+
+        // Mask sensitive data for logging
+        const maskedConfig = { ...config };
+        ['geminiApiKey', 'openaiApiKey', 'deepseekApiKey'].forEach(key => {
+            if (maskedConfig[key]) maskedConfig[key] = '***';
+        });
+
+        logGate('ConfigTab', 'SAVE:ENTRY', { config: maskedConfig });
+        logInfo('ConfigTab', 'handleSave', 'Saving configuration...', { config: maskedConfig });
 
         const configData = {
             maxTokens: config.maxTokens,
@@ -195,12 +207,15 @@ const ConfigTab = () => {
         const localSuccess = saveToLocalStorage(CONFIG_STORAGE_KEY, configData);
 
         if (backendSuccess) {
+            logGate('ConfigTab', 'SAVE:SUCCESS', { destination: 'backend+local' });
             logInfo('ConfigTab', 'handleSave', 'Settings synced to server and saved locally');
             alert('✓ Settings synced to server and saved locally');
         } else if (localSuccess) {
+            logGate('ConfigTab', 'SAVE:PARTIAL', { destination: 'local', reason: 'backend_offline' });
             logInfo('ConfigTab', 'handleSave', 'Settings saved locally (backend offline)');
             alert('✓ Settings saved locally (backend offline)');
         } else {
+            logGate('ConfigTab', 'SAVE:ERROR', { error: 'storage_permission' });
             logError('ConfigTab', 'handleSave', 'Save failed - storage permissions issue');
             alert('✗ Save failed - please check browser storage permissions');
         }

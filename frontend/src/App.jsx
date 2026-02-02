@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import Dashboard from './components/Dashboard/Dashboard';
 import ConfigTab from './components/Config/ConfigTab';
+import LogsTab from './components/Logs/LogsTab';
 import AdminTab from './components/Admin/AdminTab';
 import TemplatesTab from './components/Templates/TemplatesTab';
 import InstructionToJulesTab from './components/InstructionToJules/InstructionToJulesTab';
-import { LayoutDashboard, Settings, ShieldAlert, Activity, FileSpreadsheet, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Settings, ShieldAlert, Activity, FileSpreadsheet, MessageSquare, Terminal } from 'lucide-react';
 
 function App() {
     const [activeTab, setActiveTab] = useState('DASHBOARD');
@@ -14,6 +15,7 @@ function App() {
         switch (activeTab) {
             case 'DASHBOARD': return <Dashboard onCompileComplete={setResults} />;
             case 'CONFIG': return <ConfigTab />;
+            case 'LOGS': return <LogsTab />;
             case 'ADMIN': return <AdminTab />;
             case 'TEMPLATES': return <TemplatesTab />;
             case 'JULES': return <InstructionToJulesTab />;
@@ -40,6 +42,7 @@ function App() {
                         <TabLink id="TEMPLATES" icon={<FileSpreadsheet className="w-4 h-4" />} label="Templates/Notebooklm O/P Prompt Generator" active={activeTab === 'TEMPLATES'} onClick={setActiveTab} />
                         <TabLink id="JULES" icon={<MessageSquare className="w-4 h-4" />} label="Instruction to Jules" active={activeTab === 'JULES'} onClick={setActiveTab} />
                         <TabLink id="CONFIG" icon={<Settings className="w-4 h-4" />} label="Config" active={activeTab === 'CONFIG'} onClick={setActiveTab} />
+                        <TabLink id="LOGS" icon={<Terminal className="w-4 h-4" />} label="System Logs" active={activeTab === 'LOGS'} onClick={setActiveTab} />
                         <TabLink id="ADMIN" icon={<ShieldAlert className="w-4 h-4" />} label="Admin" active={activeTab === 'ADMIN'} onClick={setActiveTab} />
                     </nav>
 
