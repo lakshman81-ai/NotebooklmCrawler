@@ -136,6 +136,9 @@ export function generatePromptForFile(fileData, filename, source, settings = {})
     if (settings.subject) {
         prompt += `**Subject:** ${settings.subject}\n`;
     }
+    if (settings.subtopics) {
+        prompt += `**Sub-Topics:** ${settings.subtopics}\n`;
+    }
 
     return prompt.trim();
 }
@@ -170,6 +173,7 @@ export function generateReportBasis(selectedPrompts, studyGuideOptions, handoutO
     basis += `**Topic:** ${dashboardSettings.topic || 'Not specified'}\n`;
     basis += `**Grade:** ${dashboardSettings.grade || 'Not specified'}\n`;
     basis += `**Subject:** ${dashboardSettings.subject || 'Not specified'}\n`;
+    basis += `**Sub-Topics:** ${dashboardSettings.subtopics || 'None'}\n`;
     basis += `**Difficulty:** ${dashboardSettings.difficulty || 'Connect'}\n\n`;
 
     basis += `**Selected Sources:**\n`;
@@ -240,6 +244,7 @@ export function generateReportPrompt(
         report += `Generated for Topic: ${dashboardSettings.topic}\n`;
         if (dashboardSettings.grade) report += `Grade: ${dashboardSettings.grade}\n`;
         if (dashboardSettings.subject) report += `Subject: ${dashboardSettings.subject}\n`;
+        if (dashboardSettings.subtopics) report += `Sub-Topics: ${dashboardSettings.subtopics}\n`;
         report += `\n`;
     } else {
         // Fallback for empty state
