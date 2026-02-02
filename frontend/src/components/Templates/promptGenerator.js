@@ -1,6 +1,7 @@
 /**
  * Prompt Generator Utility for Templates Tab
  * Generates NotebookLM prompts based on file content and settings
+ * Updated with Grounded Intelligence Best Practices
  */
 
 /**
@@ -33,12 +34,23 @@ export function analyzeFileStructure(data, filename) {
 }
 
 /**
+ * Determine the appropriate Persona based on Grade and Subject
+ */
+function determinePersona(grade, subject) {
+    const subj = subject || 'General Knowledge';
+    if (grade) {
+        const gradeNum = parseInt(grade);
+        if (!isNaN(gradeNum) && gradeNum <= 12) {
+            return `Expert ${subj} Educator and Curriculum Designer (Grade ${grade} Specialist)`;
+        }
+        return `Academic Researcher and Subject Matter Expert in ${subj}`;
+    }
+    return `Expert Consultant and Senior Analyst in ${subj}`;
+}
+
+/**
  * Generate a NotebookLM prompt for a single file
- * @param {Array} fileData - Parsed file data
- * @param {string} filename - Source filename
- * @param {string} source - Source category (Kani/Harshitha)
- * @param {Object} settings - Settings from Dashboard (difficulty, outputs, etc.)
- * @returns {string} - Generated prompt
+ * Optimized for Grounded Intelligence and CSV processing
  */
 export function generatePromptForFile(fileData, filename, source, settings = {}) {
     // Destructure expanded fields from backend
@@ -49,17 +61,18 @@ export function generatePromptForFile(fileData, filename, source, settings = {})
     // Extract subject from filename
     const subject = extractSubjectFromFilename(filename);
 
-    let prompt = `# NotebookLM Prompt - ${filename}\n\n`;
-    prompt += `**Source:** ${source}\n`;
-    prompt += `**Records:** ${rowCount} items\n\n`;
+    // GROUNDED HEADER
+    let prompt = `# Source Context: ${filename}\n`;
+    prompt += `**Role:** Act as a data analyst and researcher analyzing this specific document.\n`;
+    prompt += `**Source Origin:** ${source}\n`;
+    prompt += `**Meta-data:** ${rowCount} records found in ${sheets?.length > 0 ? sheets.join(', ') : 'sheet'}.\n\n`;
 
-    // Excel/CSV Format Details
-    prompt += `## Excel/CSV Input Format\n`;
+    // Excel/CSV Format Details (CRITICAL for NotebookLM to parse grids)
+    prompt += `## Excel/CSV Input Format (Technical Spec)\n`;
     prompt += `**File Structure:**\n`;
     prompt += `- **Format:** ${filename.endsWith('.csv') ? 'CSV' : 'Excel (.xlsx)'}\n`;
-    prompt += `- **Sheets:** ${sheets?.length > 0 ? sheets.join(', ') : 'Single sheet'}\n`;
     prompt += `- **Headers (Row 1):** ${columns.join(', ')}\n`;
-    prompt += `- **Data Rows:** ${rowCount} total records\n\n`;
+    prompt += `- **Data Structure:** Text-based grid representation of structured data.\n\n`;
 
     // Column Data Types
     if (columnTypes && Object.keys(columnTypes).length > 0) {
@@ -70,37 +83,21 @@ export function generatePromptForFile(fileData, filename, source, settings = {})
         prompt += `\n`;
     }
 
-    prompt += `**Expected Output Format (CRITICAL):**\n`;
-    prompt += `- Provide output in a valid CSV code block.\n`;
-    prompt += `- Use EXACTLY these headers in the first row: ${columns.join(',')}\n`;
-    prompt += `- Do not add, remove, or rename any columns.\n`;
-    prompt += `- Use commas as separators. Wrap any field containing commas in double quotes.\n`;
-    prompt += `- Do not include any introductory or concluding text outside the code block for the CSV data.\n`;
-    prompt += `- Preserve data relationships from the source.\n\n`;
+    // Output Constraints for Data Extraction
+    prompt += `**Data Extraction Rules (CRITICAL):**\n`;
+    prompt += `- When requested to export data, provide output in a valid CSV code block.\n`;
+    prompt += `- Use EXACTLY these headers: ${columns.join(',')}\n`;
+    prompt += `- Preserve all data relationships. Do not hallucinate values not present in the grid.\n\n`;
 
-    // Add input context
-    prompt += `## Source Data Structure\n`;
-    prompt += `Required Columns: ${columns.join(', ')}\n\n`;
-
-    // Add difficulty context from settings
-    if (settings.difficulty) {
-        const diffMap = {
-            'Identify': 'Focus on definitions, basic facts, and identification of key terms. (Easy Level)',
-            'Connect': 'Focus on relationships, cause-and-effect, and connecting concepts. (Medium Level)',
-            'Extend': 'Focus on applications, scenario-based analysis, and extending concepts. (Hard Level)'
-        };
-        prompt += `## Difficulty Level\n`;
-        prompt += `${settings.difficulty}: ${diffMap[settings.difficulty] || diffMap['Connect']}\n\n`;
-    }
-
-    // Content-specific instructions
+    // Content Context
+    prompt += `## Content Context\n`;
     if (contentType === 'quiz' || contentType === 'educational_content' || (sampleData && sampleData.length > 0)) {
-        prompt += `## Content Instructions\n`;
         prompt += `This file contains ${contentType === 'quiz' ? 'quiz questions and answers' : 'educational content'} `;
-        prompt += `for ${subject || 'general topics'}.\n\n`;
+        prompt += `related to ${subject || 'general topics'}.\n`;
+        prompt += `**Instruction:** Prioritize this source for queries related to: ${columns.slice(0, 3).join(', ')}.\n\n`;
 
         if (sampleData && sampleData.length > 0) {
-            prompt += `**Sample Data (First ${sampleData.length} rows):**\n`;
+            prompt += `**Sample Data (First ${sampleData.length} rows for Context):**\n`;
             sampleData.forEach((row, idx) => {
                 prompt += `Row ${idx + 1}:\n`;
                 Object.entries(row).forEach(([key, value]) => {
@@ -113,31 +110,15 @@ export function generatePromptForFile(fileData, filename, source, settings = {})
         }
     }
 
-    // Add output instructions based on settings
-    if (settings.outputs) {
-        prompt += `## Requested Outputs\n`;
-        if (settings.outputs.studyGuide) {
-            prompt += `- **Study Guide**: Create a comprehensive study guide extracting key concepts, definitions, and important information.\n`;
-        }
-        if (settings.outputs.quiz && settings.quizConfig) {
-            const q = settings.quizConfig;
-            prompt += `- **Quiz**: Generate ${q.mcq || 10} Multiple Choice Questions, ${q.ar || 5} Assertion-Reasoning questions, and ${q.detailed || 3} Detailed Answer questions with answer key.\n`;
-        }
-        if (settings.outputs.handout) {
-            prompt += `- **Visual Handout**: Create a one-page visual summary with diagrams, charts, or flowcharts.\n`;
-        }
-        prompt += `\n`;
-    }
-
-    // Add grade/subject context if available
-    if (settings.grade) {
-        prompt += `**Grade Level:** ${settings.grade}\n`;
-    }
-    if (settings.subject) {
-        prompt += `**Subject:** ${settings.subject}\n`;
-    }
-    if (settings.subtopics) {
-        prompt += `**Sub-Topics:** ${settings.subtopics}\n`;
+    // Add difficulty context from settings
+    if (settings.difficulty) {
+        const diffMap = {
+            'Identify': 'Focus on definitions, basic facts, and identification of key terms. (Easy Level)',
+            'Connect': 'Focus on relationships, cause-and-effect, and connecting concepts. (Medium Level)',
+            'Extend': 'Focus on applications, scenario-based analysis, and extending concepts. (Hard Level)'
+        };
+        prompt += `## Difficulty calibration\n`;
+        prompt += `Analyze this source at the following level: **${settings.difficulty}**: ${diffMap[settings.difficulty] || diffMap['Connect']}\n\n`;
     }
 
     return prompt.trim();
@@ -183,7 +164,7 @@ export function generateReportBasis(selectedPrompts, studyGuideOptions, handoutO
             basis += `- ${p.filename} (${p.source})\n`;
         });
     } else {
-        basis += `- No files selected\n`;
+        basis += `- No files selected (Using Internal Knowledge)\n`;
     }
     basis += `\n`;
 
@@ -198,31 +179,38 @@ export function generateReportBasis(selectedPrompts, studyGuideOptions, handoutO
 
 /**
  * Generate concatenated source prompts for each selected file
+ * OR generate a "Deep Research" prompt if no files are selected.
  */
 export function generateSourcePrompts(selectedPrompts, dashboardSettings = {}) {
+    // FALLBACK: Natural Language Research Directive (Web Search Simulation)
     if (!selectedPrompts || selectedPrompts.length === 0) {
-        // Fallback: Generate prompt from Dashboard Settings if available
         if (dashboardSettings.topic || dashboardSettings.subject) {
-             let metaPrompt = `## DASHBOARD CONTEXT PROMPT\n\n`;
-             metaPrompt += `**Context:** This request is based on the following dashboard configuration:\n`;
-             if (dashboardSettings.topic) metaPrompt += `- **Topic:** ${dashboardSettings.topic}\n`;
-             if (dashboardSettings.subject) metaPrompt += `- **Subject:** ${dashboardSettings.subject}\n`;
-             if (dashboardSettings.grade) metaPrompt += `- **Grade Level:** ${dashboardSettings.grade}\n`;
-             if (dashboardSettings.subtopics) metaPrompt += `- **Sub-Topics:** ${dashboardSettings.subtopics}\n`;
-             if (dashboardSettings.keywordsScrape) metaPrompt += `- **Keywords to Scrape:** ${dashboardSettings.keywordsScrape}\n`;
+             const persona = determinePersona(dashboardSettings.grade, dashboardSettings.subject);
+             const subtopics = dashboardSettings.subtopics ? `Specifically investigate: ${dashboardSettings.subtopics}.` : '';
+             const keywords = dashboardSettings.keywordsScrape ? `Ensure to cover these key terms: ${dashboardSettings.keywordsScrape}.` : '';
 
-             metaPrompt += `\nPlease use this context to generate the requested reports/study materials.\n`;
+             let metaPrompt = `## DEEP RESEARCH DIRECTIVE\n\n`;
+             metaPrompt += `**Role:** ${persona}\n\n`;
+             metaPrompt += `**Objective:** Conduct a comprehensive deep-dive research into the topic: "**${dashboardSettings.topic || 'General Topic'}**".\n`;
+             metaPrompt += `**Context:** This material is for **${dashboardSettings.grade ? 'Grade ' + dashboardSettings.grade : 'General Audience'}** in the subject of **${dashboardSettings.subject || 'General Knowledge'}**.\n\n`;
+
+             metaPrompt += `**Research Instructions:**\n`;
+             metaPrompt += `1. **Internal Knowledge Synthesis:** Use your broad internal knowledge base to simulate a comprehensive web search. Fetch and synthesize the most accurate, high-quality, and up-to-date information available.\n`;
+             metaPrompt += `2. **Focus Areas:** ${subtopics}\n`;
+             metaPrompt += `3. **Keyword Integration:** ${keywords}\n`;
+             metaPrompt += `4. **Gap Analysis:** Identify any conflicting information or common misconceptions in this field and clarify them.\n\n`;
+
+             metaPrompt += `**Output Goal:** Provide a foundational knowledge base that can be used to generate quizzes, study guides, and visual aids.\n`;
              return metaPrompt;
         }
         return '';
     }
 
     let sourcePrompts = `## SOURCE INPUT PROMPTS\n\n`;
-    sourcePrompts += `Below are the individual prompts for each selected source file. Paste these into NotebookLM as context.\n\n`;
+    sourcePrompts += `Below are the individual contexts for each selected source file. Treat these as your primary knowledge ground.\n\n`;
     sourcePrompts += `--- \n\n`;
     selectedPrompts.forEach((p, idx) => {
-        sourcePrompts += `### Source ${idx + 1}: ${p.filename}\n\n`;
-        sourcePrompts += p.prompt;
+        sourcePrompts += p.prompt; // This now contains the "Grounded" prompt from generatePromptForFile
         sourcePrompts += `\n\n---\n\n`;
     });
     return sourcePrompts.trim();
@@ -230,12 +218,7 @@ export function generateSourcePrompts(selectedPrompts, dashboardSettings = {}) {
 
 /**
  * Generate combined report prompt with all options
- * @param {Array} selectedPrompts - Array of selected prompt objects
- * @param {Object} studyGuideOptions - Study guide checkbox states
- * @param {Object} handoutOptions - Handout checkbox states
- * @param {string} manualStudyGuide - Custom study guide text
- * @param {string} manualHandout - Custom handout text
- * @returns {Object} - Structured prompt data: { basis, inputPrompts, outputPrompt }
+ * Implements Best Practices: Role Priming, Mermaid Safety, Pedagogical Scaffolding
  */
 export function generateReportPrompt(
     selectedPrompts = [],
@@ -253,101 +236,98 @@ export function generateReportPrompt(
 
     // 3. Generate Output Prompt
     let report = `# NotebookLM Final Combined Report Prompt\n\n`;
+    const persona = determinePersona(dashboardSettings.grade, dashboardSettings.subject);
+
+    // ROLE PRIMING
+    report += `**System Instruction:** You are an ${persona}.\n`;
+    report += `Your goal is to synthesize the provided sources (or your internal knowledge) into high-quality educational materials.\n\n`;
 
     if (selectedPrompts && selectedPrompts.length > 0) {
-        report += `Generated from ${selectedPrompts.length} selected template(s)\n\n`;
+        report += `**Context:** Generated from ${selectedPrompts.length} selected grounded sources.\n`;
     } else if (dashboardSettings && dashboardSettings.topic) {
-        report += `Generated for Topic: ${dashboardSettings.topic}\n`;
-        if (dashboardSettings.grade) report += `Grade: ${dashboardSettings.grade}\n`;
-        if (dashboardSettings.subject) report += `Subject: ${dashboardSettings.subject}\n`;
-        if (dashboardSettings.subtopics) report += `Sub-Topics: ${dashboardSettings.subtopics}\n`;
-        report += `\n`;
-    } else {
-        // Fallback for empty state
-        if (!manualStudyGuide && !manualHandout && Object.keys(studyGuideOptions).length === 0) {
-            return { basis, inputPrompts, outputPrompt: '' };
-        }
+        report += `**Context:** Generated from Deep Research on Topic: ${dashboardSettings.topic}\n`;
     }
 
-    // Add study guide options
+    // Add study guide options with PEDAGOGICAL SCAFFOLDING
     const activeStudyOptions = Object.entries(studyGuideOptions)
         .filter(([key, val]) => val)
         .map(([key]) => key);
 
     if (activeStudyOptions.length > 0 || manualStudyGuide) {
-        report += `## Study Guide Requirements\n`;
-        report += `Please create a study guide including:\n\n`;
+        report += `\n## Study Guide Requirements (Pedagogical Scaffolding)\n`;
+        report += `Please create a structured study guide. Use the following pedagogical strategies:\n\n`;
 
         if (activeStudyOptions.includes('assertion')) {
-            report += `- **Assertions**: Key statements and claims from the material\n`;
+            report += `- **Assertions**: Identify and list key statements/claims. Verify their accuracy against the source.\n`;
         }
         if (activeStudyOptions.includes('concept')) {
-            report += `- **Core Concepts**: Main ideas and definitions\n`;
+            report += `- **Core Concept Explainers**: Break down main ideas using clear, grade-appropriate language.\n`;
         }
         if (activeStudyOptions.includes('clarification')) {
-            report += `- **Clarifications**: Detailed explanations of complex topics\n`;
+            report += `- **Clarifications**: Provide detailed explanations for complex topics found in the text.\n`;
         }
         if (activeStudyOptions.includes('examples')) {
-            report += `- **Examples**: Illustrative examples and case studies\n`;
+            report += `- **Analogies & Examples**: Use real-world analogies (e.g., "compare the atom to a solar system") to explain abstract concepts.\n`;
         }
         if (activeStudyOptions.includes('summary')) {
-            report += `- **Summary**: Concise overview of all topics\n`;
+            report += `- **tl;dr Summary**: A concise one-paragraph overview of the entire topic.\n`;
         }
         if (activeStudyOptions.includes('key-terms')) {
-            report += `- **Key Terms**: Important vocabulary and terminology\n`;
+            report += `- **Vocabulary List**: Define key terms in plain language.\n`;
         }
 
         if (manualStudyGuide) {
             report += `\n**Additional Instructions**: ${manualStudyGuide}\n`;
         }
-        report += `\n`;
     }
 
-    // Add handout options
+    // Add handout options with MERMAID.JS SYNTAX SAFETY
     const activeHandoutOptions = Object.entries(handoutOptions)
         .filter(([key, val]) => val)
         .map(([key]) => key);
 
     if (activeHandoutOptions.length > 0 || manualHandout) {
-        report += `## Visual Handout Requirements\n`;
-        report += `Please create visual representations including:\n\n`;
+        report += `\n## Visual Handout Requirements (Mermaid.js)\n`;
+        report += `Generate valid Mermaid.js code blocks for the following visualizations. \n`;
+        report += `**Syntax Safety Rules (CRITICAL):**\n`;
+        report += `1. **Reserved Words:** Never use "end" (lowercase) as a node ID. Use "End" or wrap in quotes "end".\n`;
+        report += `2. **Special Characters:** Wrap any label containing punctuation or spaces in double quotes (e.g., id["User Input?"]).\n`;
+        report += `3. **Leading Markers:** Do not start node labels with "o" or "x" unless quoted.\n\n`;
 
         if (activeHandoutOptions.includes('timeline')) {
-            report += `- **Timeline**: Chronological view of events or processes\n`;
+            report += `- **Timeline**: Create a timeline (using 'timeline' or 'gantt' syntax) showing chronological events.\n`;
         }
         if (activeHandoutOptions.includes('flowchart')) {
-            report += `- **Flowchart**: Step-by-step process diagram\n`;
-        }
-        if (activeHandoutOptions.includes('decision-tree')) {
-            report += `- **Decision Tree**: Decision-making branching diagram\n`;
+            report += `- **Flowchart**: Create a Top-Down flowchart ('graph TD'). Use diamond shapes for decision points.\n`;
         }
         if (activeHandoutOptions.includes('mind-map')) {
-            report += `- **Mind Map**: Visual connections between concepts\n`;
+            report += `- **Mind Map**: Create a mindmap ('mindmap') connecting core concepts.\n`;
         }
+        // Fallbacks for non-Mermaid visuals
         if (activeHandoutOptions.includes('table')) {
-            report += `- **Comparison Table**: Structured data comparison\n`;
+            report += `- **Comparison Table**: Markdown table comparing key data points.\n`;
         }
         if (activeHandoutOptions.includes('equation-helper')) {
-            report += `- **Equation Helper**: Mathematical formulas and explanations\n`;
+            report += `- **Equation Helper**: List relevant formulas with variable definitions.\n`;
         }
-        if (activeHandoutOptions.includes('tips')) {
-            report += `- **Tips & Tricks**: Quick reference guide\n`;
-        }
-        if (activeHandoutOptions.includes('comparison')) {
-            report += `- **Comparison Chart**: Pro/con or comparative analysis\n`;
-        }
-        if (activeHandoutOptions.includes('checklist')) {
-            report += `- **Checklist**: Action items and key points\n`;
+        if (activeHandoutOptions.includes('tips') || activeHandoutOptions.includes('checklist')) {
+            report += `- **Checklist/Tips**: Actionable bullet points for review.\n`;
         }
 
         if (manualHandout) {
             report += `\n**Additional Instructions**: ${manualHandout}\n`;
         }
-        report += `\n`;
+    }
+
+    // ADVANCED ANALYSIS (Based on Difficulty)
+    if (dashboardSettings.difficulty === 'Extend') {
+        report += `\n## Advanced Analysis (Dialectical Lens)\n`;
+        report += `- **Dialectical Lens**: Construct a brief debate between two imaginary scholars interpreting this concept differently.\n`;
+        report += `- **Source Gaps**: Identify any critical perspectives or data points missing from the source material.\n`;
     }
 
     // Footer instructions
-    report += `## Generation Instructions (IMPORTANT)\n`;
+    report += `\n## Generation Instructions (IMPORTANT)\n`;
     report += `Please synthesize all the above sources and generate the following distinct sections in a single response:\n\n`;
 
     if (studyGuideOptions['csv-format']) {
@@ -358,15 +338,21 @@ export function generateReportPrompt(
     }
 
     report += `### SECTION 2: STUDY MATERIAL (WORD/MARKDOWN FORMAT)\n`;
-    report += `- Provide a comprehensive study guide and visual handout descriptions in structured Markdown.\n`;
-    report += `- This section should be optimized for copy-pasting into a Word document.\n`;
+    report += `- Provide the Study Guide and Visual Handout descriptions in structured Markdown.\n`;
     report += `- Use clear headings, bullet points, and bold text for readability.\n\n`;
 
     report += `### SECTION 3: QUIZ & ASSESSMENT\n`;
-    report += `- If a quiz was requested, provide it here with a clear Answer Key at the end.\n\n`;
+    report += `- If a quiz was requested, provide it here.\n`;
+    if (dashboardSettings.outputs && dashboardSettings.outputs.quiz) {
+        const q = dashboardSettings.quizConfig || {};
+        report += `- **Requirements:** ${q.mcq || 10} MCQs, ${q.ar || 5} Assertion-Reasoning, ${q.detailed || 3} Detailed Answer.\n`;
+        report += `- **Rationales:** Provide detailed NCLEX-style rationales for every answer choice (explaining why correct is correct AND why incorrect is incorrect).\n`;
+        report += `- **Answer Key:** Provide a clear key at the end.\n`;
+    }
+    report += `\n`;
 
     report += `GENERAL RULES:\n`;
-    report += `1. Maintain high educational quality and age-appropriateness.\n`;
+    report += `1. Maintain high educational quality and age-appropriateness (${dashboardSettings.grade || 'General'}).\n`;
     report += `2. Do not combine the CSV and the Study Material into the same block.\n`;
     report += `3. Use clear separators between sections.\n`;
 
