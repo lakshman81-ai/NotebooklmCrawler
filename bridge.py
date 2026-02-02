@@ -25,6 +25,8 @@ class ConfigSaveRequest(BaseModel):
     notebooklmAvailable: Optional[bool] = None
     deepseekAvailable: Optional[bool] = None
     notebooklmGuided: Optional[bool] = None
+    trustedDomains: Optional[str] = None
+    blockedDomains: Optional[str] = None
 
 class AdminSaveRequest(BaseModel):
     deepseek: str
@@ -173,7 +175,9 @@ async def load_config():
             "keywordsReport": config.get("CR_KEYWORDS_REPORT", ""),
             "outputConfig": config.get("CR_OUTPUT_CONFIG", '{"studyGuide": true, "quiz": true, "handout": false}'),
             "localFilePath": config.get("CR_LOCAL_FILE_PATH", ""),
-            "quizConfig": config.get("CR_QUIZ_CONFIG", '{"mcq": 10, "ar": 5, "detailed": 3, "custom": ""}')
+            "quizConfig": config.get("CR_QUIZ_CONFIG", '{"mcq": 10, "ar": 5, "detailed": 3, "custom": ""}'),
+            "trustedDomains": config.get("TRUSTED_DOMAINS", "byjus.com, vedantu.com, khanacademy.org"),
+            "blockedDomains": config.get("BLOCKED_DOMAINS", "duckduckgo.com, youtube.com, facebook.com, twitter.com, instagram.com, pinterest.com, linkedin.com, amazon.com")
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -196,6 +200,10 @@ async def save_config(req: ConfigSaveRequest):
             set_key(str(ENV_PATH), "DEEPSEEK_AVAILABLE", str(req.deepseekAvailable).lower())
         if req.notebooklmGuided is not None:
             set_key(str(ENV_PATH), "NOTEBOOKLM_GUIDED", str(req.notebooklmGuided).lower())
+        if req.trustedDomains is not None:
+            set_key(str(ENV_PATH), "TRUSTED_DOMAINS", req.trustedDomains)
+        if req.blockedDomains is not None:
+            set_key(str(ENV_PATH), "BLOCKED_DOMAINS", req.blockedDomains)
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
