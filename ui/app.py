@@ -52,6 +52,7 @@ with tab_settings:
         subtopics = st.text_input("Subtopics (comma-separated)", value=os.getenv("CR_SUBTOPICS", "laws,zero exponent"))
 
         st.subheader("Domain Management")
+        # Domain Management UI
         col3, col4 = st.columns(2)
         with col3:
             default_trusted = "byjus.com, vedantu.com, khanacademy.org"
