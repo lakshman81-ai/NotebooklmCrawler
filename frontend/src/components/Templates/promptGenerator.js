@@ -174,6 +174,7 @@ export function generateReportBasis(selectedPrompts, studyGuideOptions, handoutO
     basis += `**Grade:** ${dashboardSettings.grade || 'Not specified'}\n`;
     basis += `**Subject:** ${dashboardSettings.subject || 'Not specified'}\n`;
     basis += `**Sub-Topics:** ${dashboardSettings.subtopics || 'None'}\n`;
+    basis += `**Keywords to Scrape:** ${dashboardSettings.keywordsScrape || 'None'}\n`;
     basis += `**Difficulty:** ${dashboardSettings.difficulty || 'Connect'}\n\n`;
 
     basis += `**Selected Sources:**\n`;
@@ -198,8 +199,23 @@ export function generateReportBasis(selectedPrompts, studyGuideOptions, handoutO
 /**
  * Generate concatenated source prompts for each selected file
  */
-export function generateSourcePrompts(selectedPrompts) {
-    if (!selectedPrompts || selectedPrompts.length === 0) return '';
+export function generateSourcePrompts(selectedPrompts, dashboardSettings = {}) {
+    if (!selectedPrompts || selectedPrompts.length === 0) {
+        // Fallback: Generate prompt from Dashboard Settings if available
+        if (dashboardSettings.topic || dashboardSettings.subject) {
+             let metaPrompt = `## DASHBOARD CONTEXT PROMPT\n\n`;
+             metaPrompt += `**Context:** This request is based on the following dashboard configuration:\n`;
+             if (dashboardSettings.topic) metaPrompt += `- **Topic:** ${dashboardSettings.topic}\n`;
+             if (dashboardSettings.subject) metaPrompt += `- **Subject:** ${dashboardSettings.subject}\n`;
+             if (dashboardSettings.grade) metaPrompt += `- **Grade Level:** ${dashboardSettings.grade}\n`;
+             if (dashboardSettings.subtopics) metaPrompt += `- **Sub-Topics:** ${dashboardSettings.subtopics}\n`;
+             if (dashboardSettings.keywordsScrape) metaPrompt += `- **Keywords to Scrape:** ${dashboardSettings.keywordsScrape}\n`;
+
+             metaPrompt += `\nPlease use this context to generate the requested reports/study materials.\n`;
+             return metaPrompt;
+        }
+        return '';
+    }
 
     let sourcePrompts = `## SOURCE INPUT PROMPTS\n\n`;
     sourcePrompts += `Below are the individual prompts for each selected source file. Paste these into NotebookLM as context.\n\n`;
@@ -233,7 +249,7 @@ export function generateReportPrompt(
     const basis = generateReportBasis(selectedPrompts, studyGuideOptions, handoutOptions, dashboardSettings);
 
     // 2. Generate Input Prompts
-    const inputPrompts = generateSourcePrompts(selectedPrompts);
+    const inputPrompts = generateSourcePrompts(selectedPrompts, dashboardSettings);
 
     // 3. Generate Output Prompt
     let report = `# NotebookLM Final Combined Report Prompt\n\n`;
