@@ -72,6 +72,7 @@ const TemplatesTab = () => {
         grade: '',
         subject: '',
         topic: '',
+        subtopics: '',
         difficulty: 'Connect',
         outputs: {
             studyGuide: true,
@@ -99,6 +100,7 @@ const TemplatesTab = () => {
                         grade: parsed.grade || currentSettings.grade,
                         subject: parsed.subject || currentSettings.subject,
                         topic: parsed.topic || currentSettings.topic,
+                        subtopics: parsed.subtopics || currentSettings.subtopics,
                         difficulty: parsed.difficulty || currentSettings.difficulty,
                         outputs: parsed.outputs || currentSettings.outputs,
                         quizConfig: parsed.quizConfig || currentSettings.quizConfig
