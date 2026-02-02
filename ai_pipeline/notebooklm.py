@@ -10,6 +10,41 @@ from contracts.chunk_schema import Chunk
 
 logger = logging.getLogger(__name__)
 
+def _build_dynamic_search_query(context: dict) -> str:
+    """
+    Build a dynamic search query using all trusted domains.
+
+    Args:
+        context: Dictionary with topic, grade, subtopics
+
+    Returns:
+        Search query string with OR'd site filters
+    """
+    from contracts.source_policy import TRUSTED_DOMAINS
+
+    topic = context.get('topic', '')
+    grade = context.get('grade', '')
+    subtopics = context.get('subtopics', [])
+
+    # Build keywords string
+    if isinstance(subtopics, list):
+        keywords = " ".join(subtopics)
+    else:
+        keywords = str(subtopics)
+
+    # Build site filters with OR
+    if TRUSTED_DOMAINS:
+        site_filters = " OR ".join([f"site:{d}" for d in TRUSTED_DOMAINS])
+        site_clause = f"({site_filters})"
+    else:
+        site_clause = ""
+
+    # Combine all parts
+    query_parts = [topic, grade, keywords, site_clause]
+    query = " ".join(part for part in query_parts if part.strip())
+
+    return query.strip()
+
 async def dismiss_popups(page):
     """
     Helper to auto-approve/dismiss common onboarding tooltips or dialogs.
@@ -379,12 +414,7 @@ async def run_notebooklm(chunks: List[Chunk], context: Optional[Dict] = None, pa
 
             if not target_url:
                 # Search Query (Only if NO URL)
-                topic = (context or {}).get('topic', '')
-                grade = (context or {}).get('grade', '')
-                subtopics = (context or {}).get('subtopics', [])
-                keywords = " ".join(subtopics) if isinstance(subtopics, list) else subtopics
-                
-                search_query = f"{topic} {grade} {keywords} site:byjus".strip()
+                search_query = _build_dynamic_search_query(context or {})
                 
                 logger.info(f"Performing search: {search_query}")
                 # Robust input finding

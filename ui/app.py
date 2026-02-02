@@ -51,6 +51,24 @@ with tab_settings:
 
         subtopics = st.text_input("Subtopics (comma-separated)", value=os.getenv("CR_SUBTOPICS", "laws,zero exponent"))
 
+        st.subheader("Domain Management")
+        col3, col4 = st.columns(2)
+        with col3:
+            default_trusted = "byjus.com, vedantu.com, khanacademy.org"
+            trusted_domains = st.text_area(
+                "Trusted Domains (comma-separated)",
+                value=os.getenv("TRUSTED_DOMAINS", default_trusted),
+                help="Domains used when Source Type is 'trusted'."
+            )
+
+        with col4:
+            default_blocked = "duckduckgo.com, youtube.com, facebook.com, twitter.com, instagram.com, pinterest.com, linkedin.com, amazon.com"
+            blocked_domains = st.text_area(
+                "Blocked Domains (comma-separated)",
+                value=os.getenv("BLOCKED_DOMAINS", default_blocked),
+                help="Domains excluded from search results."
+            )
+
         st.info("Technical settings are grouped here to keep the dashboard clean.")
 
         if st.form_submit_button("Save Configuration"):
@@ -71,6 +89,8 @@ with tab_settings:
                 set_key(ENV_PATH, "CR_SUBTOPICS", subtopics)
                 set_key(ENV_PATH, "CR_OUTPUT_TYPE", output_type)
                 set_key(ENV_PATH, "CR_SOURCE_TYPE", source_type)
+                set_key(ENV_PATH, "TRUSTED_DOMAINS", trusted_domains)
+                set_key(ENV_PATH, "BLOCKED_DOMAINS", blocked_domains)
 
                 st.success("Settings saved! Configuration updated.")
 
@@ -84,6 +104,8 @@ with tab_settings:
                 os.environ["CR_SUBTOPICS"] = subtopics
                 os.environ["CR_OUTPUT_TYPE"] = output_type
                 os.environ["CR_SOURCE_TYPE"] = source_type
+                os.environ["TRUSTED_DOMAINS"] = trusted_domains
+                os.environ["BLOCKED_DOMAINS"] = blocked_domains
 
             except Exception as e:
                 st.error(f"Failed to save settings: {e}")

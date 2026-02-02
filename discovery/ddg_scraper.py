@@ -12,23 +12,35 @@ Advantages:
 
 import logging
 import re
+import os
 from urllib.parse import quote, urlparse, parse_qs, unquote
 from typing import List, Optional
 from playwright.async_api import Page
 
 logger = logging.getLogger(__name__)
 
+def _load_blocked_patterns():
+    env_patterns = os.getenv("BLOCKED_DOMAINS", "")
+    if env_patterns:
+        # Convert comma-separated domains/patterns to regex compatible strings if needed
+        # Assuming simple domain list for now, we escape them to be safe regex
+        patterns = [re.escape(p.strip()) for p in env_patterns.split(",") if p.strip()]
+        if patterns:
+            return patterns
+
+    return [
+        r"duckduckgo\.com",
+        r"youtube\.com",
+        r"facebook\.com",
+        r"twitter\.com",
+        r"instagram\.com",
+        r"pinterest\.com",
+        r"linkedin\.com",
+        r"amazon\.com",
+    ]
+
 # Blocked URL patterns
-BLOCKED_PATTERNS = [
-    r"duckduckgo\.com",
-    r"youtube\.com",
-    r"facebook\.com",
-    r"twitter\.com",
-    r"instagram\.com",
-    r"pinterest\.com",
-    r"linkedin\.com",
-    r"amazon\.com",
-]
+BLOCKED_PATTERNS = _load_blocked_patterns()
 
 
 async def scrape_ddg_search(
@@ -162,9 +174,19 @@ def _filter_urls(urls: List[str]) -> List[str]:
     """Filter out blocked URLs."""
     filtered = []
 
+    # Reload patterns dynamically to catch env changes in same process if needed,
+    # though usually env is static per run.
+    # For now, we use the module-level BLOCKED_PATTERNS which is loaded at import.
+    # If we want dynamic reload during long-running app without restart, we should call _load_blocked_patterns() here.
+    # Given the app structure (Streamlit re-runs scripts, but backend might be persistent?), let's stick to import time for now
+    # unless user updates env vars and expects immediate effect without restart.
+    # Streamlit "Run Pipeline" runs a subprocess, so it will pick up new Env vars saved to .env.
+
+    patterns = BLOCKED_PATTERNS
+
     for url in urls:
         is_blocked = False
-        for pattern in BLOCKED_PATTERNS:
+        for pattern in patterns:
             if re.search(pattern, url, re.I):
                 is_blocked = True
                 break
