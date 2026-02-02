@@ -6,6 +6,7 @@ class SourceType(str, Enum):
     GENERAL = "general"
 
 def _load_trusted_domains():
+    # Load trusted domains from environment variable
     env_domains = os.getenv("TRUSTED_DOMAINS", "")
     if env_domains:
         return {d.strip() for d in env_domains.split(",") if d.strip()}

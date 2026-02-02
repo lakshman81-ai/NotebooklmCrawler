@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Download, Upload, Save, Clock, Globe, Bot, Cpu, Server, AlertCircle, Code, CheckCircle, Info, Zap, FolderOpen } from 'lucide-react';
+import { Settings, Download, Upload, Save, Clock, Globe, Bot, Cpu, Server, AlertCircle, Code, CheckCircle, Info, Zap, FolderOpen, Shield } from 'lucide-react';
 import { logInfo, logError, logWarn, setWorkflow, advanceWorkflow, endWorkflow } from '../../services/loggingService';
 
 // --- Local Storage Utilities ---
@@ -75,6 +75,8 @@ const ConfigTab = () => {
         notebooklmAvailable: true,
         deepseekAvailable: false,
         notebooklmGuided: true,
+        trustedDomains: 'byjus.com, vedantu.com, khanacademy.org',
+        blockedDomains: 'duckduckgo.com, youtube.com, facebook.com, twitter.com, instagram.com, pinterest.com, linkedin.com, amazon.com',
         // API Keys (Phase 4)
         geminiApiKey: '',
         openaiApiKey: '',
@@ -107,6 +109,8 @@ const ConfigTab = () => {
                     notebooklmAvailable: localConfig.notebooklmAvailable !== false,
                     deepseekAvailable: localConfig.deepseekAvailable || false,
                     notebooklmGuided: localConfig.notebooklmGuided || false,
+                    trustedDomains: localConfig.trustedDomains || 'byjus.com, vedantu.com, khanacademy.org',
+                    blockedDomains: localConfig.blockedDomains || 'duckduckgo.com, youtube.com, facebook.com, twitter.com, instagram.com, pinterest.com, linkedin.com, amazon.com',
                     // API Keys
                     geminiApiKey: localConfig.geminiApiKey || '',
                     openaiApiKey: localConfig.openaiApiKey || '',
@@ -131,7 +135,9 @@ const ConfigTab = () => {
                         discoveryMethod: data.discoveryMethod || prev.discoveryMethod,
                         notebooklmAvailable: data.notebooklmAvailable ?? prev.notebooklmAvailable,
                         deepseekAvailable: data.deepseekAvailable ?? prev.deepseekAvailable,
-                        notebooklmGuided: data.notebooklmGuided ?? prev.notebooklmGuided
+                        notebooklmGuided: data.notebooklmGuided ?? prev.notebooklmGuided,
+                        trustedDomains: data.trustedDomains || prev.trustedDomains,
+                        blockedDomains: data.blockedDomains || prev.blockedDomains
                     }));
                     setLoaded(true);
                 }
@@ -160,6 +166,8 @@ const ConfigTab = () => {
             notebooklmAvailable: config.notebooklmAvailable,
             deepseekAvailable: config.deepseekAvailable,
             notebooklmGuided: config.notebooklmGuided,
+            trustedDomains: config.trustedDomains,
+            blockedDomains: config.blockedDomains,
             // API Keys (Phase 4)
             geminiApiKey: config.geminiApiKey,
             openaiApiKey: config.openaiApiKey,
@@ -371,6 +379,46 @@ const ConfigTab = () => {
                     </div>
                 </div>
 
+            </div>
+
+            {/* Domain Management Section */}
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
+                <div className="flex items-center gap-2 text-indigo-600 mb-2">
+                    <Shield className="w-5 h-5" />
+                    <h3 className="font-black text-sm uppercase tracking-widest">Domain Management</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block pl-1">
+                            Trusted Domains (comma-separated)
+                        </label>
+                        <textarea
+                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-mono text-xs text-slate-700 min-h-[100px]"
+                            value={config.trustedDomains}
+                            onChange={(e) => setConfig({ ...config, trustedDomains: e.target.value })}
+                            placeholder="byjus.com, vedantu.com, khanacademy.org"
+                        />
+                        <p className="text-[9px] text-slate-400 pl-1">
+                            Domains used when Source Type is 'trusted'
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block pl-1">
+                            Blocked Domains (comma-separated)
+                        </label>
+                        <textarea
+                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-mono text-xs text-slate-700 min-h-[100px]"
+                            value={config.blockedDomains}
+                            onChange={(e) => setConfig({ ...config, blockedDomains: e.target.value })}
+                            placeholder="duckduckgo.com, youtube.com, ..."
+                        />
+                        <p className="text-[9px] text-slate-400 pl-1">
+                            Domains excluded from search results
+                        </p>
+                    </div>
+                </div>
             </div>
 
             {/* Environment Variables Section (Phase 4) */}

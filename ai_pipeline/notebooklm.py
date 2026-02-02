@@ -32,7 +32,7 @@ def _build_dynamic_search_query(context: dict) -> str:
     else:
         keywords = str(subtopics)
 
-    # Build site filters with OR
+    # Build site filters with OR using trusted domains
     if TRUSTED_DOMAINS:
         site_filters = " OR ".join([f"site:{d}" for d in TRUSTED_DOMAINS])
         site_clause = f"({site_filters})"

@@ -20,6 +20,7 @@ from playwright.async_api import Page
 logger = logging.getLogger(__name__)
 
 def _load_blocked_patterns():
+    # Load blocked domains from environment variable
     env_patterns = os.getenv("BLOCKED_DOMAINS", "")
     if env_patterns:
         # Convert comma-separated domains/patterns to regex compatible strings if needed
