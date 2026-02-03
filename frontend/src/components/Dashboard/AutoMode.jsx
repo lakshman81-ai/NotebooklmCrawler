@@ -199,24 +199,6 @@ const TabButton = ({ label, active, onClick, icon }) => (
     </button>
 );
 
-const SegmentedControl = ({ options, value, onChange }) => (
-    <div className="flex gap-2 p-1.5 bg-slate-100 rounded-[1.5rem] border border-slate-200/50 shadow-inner">
-        {options.map((opt) => (
-            <button
-                key={opt.value}
-                onClick={() => onChange(opt.value)}
-                className={`flex-1 py-3 px-2 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${value === opt.value
-                    ? 'bg-white text-indigo-700 shadow-lg shadow-indigo-100 ring-1 ring-black/5'
-                    : 'text-slate-400 hover:text-slate-600'
-                    }`}
-            >
-                {opt.icon && <opt.icon className={`w-3.5 h-3.5 ${value === opt.value ? 'text-indigo-500' : 'text-slate-300'}`} />}
-                {opt.label}
-            </button>
-        ))}
-    </div>
-);
-
 const SidebarLink = ({ label, icon, onClick, active }) => (
     <button
         onClick={onClick}
@@ -282,6 +264,137 @@ const TextAreaField = ({ label, value, onChange, placeholder, required = false, 
         </div>
     </div>
 );
+
+// --- New Components for Intelligence Source & Difficulty ---
+
+const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb }) => {
+    // Groups logic
+    const crawlersDisabled = searchWeb; // If Web Search is ON, Crawlers are disabled
+    const fetchersDisabled = !searchWeb; // If Web Search is OFF, Fetchers are disabled
+
+    const SourceButton = ({ id, label, icon: Icon, disabled, subText }) => (
+        <button
+            onClick={() => !disabled && onChange(id)}
+            disabled={disabled}
+            className={`flex flex-col items-center justify-center p-4 rounded-2xl transition-all relative ${
+                value === id
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50 scale-[1.02] ring-1 ring-white/20'
+                    : disabled
+                        ? 'bg-slate-800/50 text-slate-600 opacity-50 cursor-not-allowed'
+                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-indigo-300'
+            }`}
+        >
+            {Icon && <Icon className="w-5 h-5 mb-2" />}
+            <div className="text-[10px] font-black uppercase tracking-widest">{label}</div>
+            {subText && <div className="text-[8px] font-bold text-emerald-400 mt-1">{subText}</div>}
+            {value === id && (
+                <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" />
+            )}
+        </button>
+    );
+
+    return (
+        <div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-800 shadow-xl space-y-4 mb-6">
+            <div className="flex items-center gap-2 text-indigo-400 px-2">
+                <Bot className="w-4 h-4" />
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Intelligence Source</h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                {/* CRAWLERS GROUP */}
+                <div className={`space-y-2 p-2 rounded-2xl border border-dashed border-slate-700/50 ${crawlersDisabled ? 'opacity-30 grayscale' : ''}`}>
+                    <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest text-center mb-1">Crawlers</div>
+                    <div className="grid grid-cols-1 gap-2">
+                        <SourceButton
+                            id="AUTO"
+                            label="AUTO"
+                            disabled={crawlersDisabled}
+                            subText={config.deepseekAvailable ? "DeepSeek Enhanced" : null}
+                        />
+                        {(config.notebooklmAvailable || config.notebooklmGuided) && (
+                            <SourceButton
+                                id="NOTEBOOKLM"
+                                label="NOTEBOOKLM"
+                                icon={Bot}
+                                disabled={crawlersDisabled}
+                                subText={config.notebooklmGuided ? "Guided Mode" : null}
+                            />
+                        )}
+                    </div>
+                </div>
+
+                {/* URL FETCHERS GROUP */}
+                <div className={`space-y-2 p-2 rounded-2xl border border-dashed border-slate-700/50 ${fetchersDisabled ? 'opacity-30 grayscale' : ''}`}>
+                    <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest text-center mb-1">URL Fetchers</div>
+                    <div className="grid grid-cols-1 gap-2">
+                        <SourceButton
+                            id="GOOGLE"
+                            label="GOOGLE"
+                            disabled={fetchersDisabled}
+                        />
+                        <SourceButton
+                            id="DDG"
+                            label="DUCKDUCKGO"
+                            disabled={fetchersDisabled}
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const LogicDifficultySelector = ({ value, onChange }) => {
+    const levels = ['Identify', 'Connect', 'Extend'];
+    const descriptions = {
+        'Identify': 'Basic Facts',
+        'Connect': 'Relationships',
+        'Extend': 'Applications'
+    };
+
+    return (
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 mt-6">
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-slate-400">
+                    <Activity className="w-4 h-4" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">Logic Difficulty</h3>
+                </div>
+                <div className="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg uppercase">
+                    Signal Tuning
+                </div>
+            </div>
+
+            <div className="flex items-center justify-between relative px-4 py-2">
+                {/* Connecting Line */}
+                <div className="absolute top-1/2 left-4 right-4 h-1 bg-slate-100 -z-0 rounded-full" />
+
+                {levels.map((level, idx) => {
+                    const isActive = value === level;
+                    // Check if this step is "passed" (visually filled line logic could be added but simpler is fine)
+                    return (
+                        <div key={level} className="relative z-10 flex flex-col items-center gap-2 group cursor-pointer" onClick={() => onChange(level)}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                                isActive
+                                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200 scale-110'
+                                    : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-300'
+                            }`}>
+                                <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-white' : 'bg-slate-300'}`} />
+                            </div>
+                            <div className="text-center">
+                                <div className={`text-[9px] font-black uppercase tracking-widest transition-colors ${isActive ? 'text-indigo-800' : 'text-slate-400'}`}>
+                                    {level}
+                                </div>
+                                <div className={`text-[8px] font-bold transition-all ${isActive ? 'text-indigo-500 opacity-100' : 'text-slate-300 opacity-0 -translate-y-1'}`}>
+                                    {descriptions[level]}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
 
 // --- Main Component ---
 
@@ -388,6 +501,22 @@ const AutoMode = () => {
     useEffect(() => {
         localStorage.setItem('dashboard_context', JSON.stringify(context));
     }, [context]);
+
+    // --- AUTO-SWITCH LOGIC ---
+    useEffect(() => {
+        // When Search Web toggle changes, enforce valid Intelligence Source selection
+        if (context.searchWeb) {
+            // Web Search ON: Must be Google or DDG
+            if (context.intelligenceSource === 'AUTO' || context.intelligenceSource === 'NOTEBOOKLM') {
+                setContext(prev => ({ ...prev, intelligenceSource: 'GOOGLE' }));
+            }
+        } else {
+            // Web Search OFF: Must be Auto or NotebookLM
+            if (context.intelligenceSource === 'GOOGLE' || context.intelligenceSource === 'DDG') {
+                setContext(prev => ({ ...prev, intelligenceSource: 'AUTO' }));
+            }
+        }
+    }, [context.searchWeb]);
 
     // --- Validation Logic (Gate 2) ---
     const validateInput = () => {
@@ -630,6 +759,14 @@ const AutoMode = () => {
                         {/* LEFT COLUMN: Research Foundation & Config (Scrollable) */}
                         < div className="col-span-7 row-start-1 h-full overflow-y-auto pr-4 custom-scrollbar pb-4" >
 
+                            {/* --- INTELLIGENCE SOURCE (MOVED TO TOP) --- */}
+                            <IntelligenceSourceSelector
+                                value={context.intelligenceSource}
+                                onChange={(val) => setContext({ ...context, intelligenceSource: val })}
+                                config={config}
+                                searchWeb={context.searchWeb}
+                            />
+
                             {/* 1. Research Foundation Card */}
                             < div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200 space-y-8" >
                                 <div className="flex items-center justify-between border-b border-slate-100 pb-6">
@@ -732,37 +869,10 @@ const AutoMode = () => {
                                     />
                                 </div>
 
-                                {/* Difficulty Engine (Always Active) */}
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
-                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Logic Difficulty</label>
-                                    <div className="flex gap-2">
-                                        {['Identify', 'Connect', 'Extend'].map(level => (
-                                            <button
-                                                key={level}
-                                                onClick={() => setContext({ ...context, difficulty: level })}
-                                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${context.difficulty === level ? 'bg-white text-indigo-600 shadow-md ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
-                                            >
-                                                {level}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                                {/* Difficulty Logic Removed from here */}
                             </div >
 
-                            {/* Intelligence Source (Consolidated) */}
-                            < div className="space-y-3 px-2" >
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] pl-2">Intelligence Source</label>
-                                <SegmentedControl
-                                    options={[
-                                        { label: 'AUTO', value: 'AUTO' },
-                                        { label: 'GOOGLE', value: 'GOOGLE' },
-                                        { label: 'DUCKDUCKGO', value: 'DDG' },
-                                        { label: 'NOTEBOOKLM', value: 'NOTEBOOKLM', icon: Bot }
-                                    ]}
-                                    value={context.intelligenceSource}
-                                    onChange={(val) => setContext({ ...context, intelligenceSource: val })}
-                                />
-                            </div >
+                            {/* Intelligence Source Removed from here */}
 
                             {/* Customization Cluster */}
                             < div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200 space-y-6" >
@@ -828,6 +938,12 @@ const AutoMode = () => {
                                     })}
                                 </div>
                             </div >
+
+                            {/* --- LOGIC DIFFICULTY (MOVED TO RIGHT) --- */}
+                            <LogicDifficultySelector
+                                value={context.difficulty}
+                                onChange={(val) => setContext({ ...context, difficulty: val })}
+                            />
 
                             {/* Activity Stream (Refinement: Taller & Copy) */}
                             < div className="flex-1 bg-slate-950 rounded-[2.5rem] border border-slate-800 p-6 relative overflow-hidden flex flex-col shadow-2xl min-h-0" >
@@ -1049,4 +1165,3 @@ const AutoMode = () => {
 };
 
 export default AutoMode;
-

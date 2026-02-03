@@ -362,7 +362,15 @@ const ConfigTab = () => {
                             label="NotebookLM Available"
                             description="Enable Google NotebookLM integration"
                             active={config.notebooklmAvailable}
-                            onChange={() => setConfig({ ...config, notebooklmAvailable: !config.notebooklmAvailable })}
+                            onChange={() => {
+                                const newValue = !config.notebooklmAvailable;
+                                setConfig({
+                                    ...config,
+                                    notebooklmAvailable: newValue,
+                                    // If enabling Available, disable Guided
+                                    notebooklmGuided: newValue ? false : config.notebooklmGuided
+                                });
+                            }}
                         />
 
                         <Toggle
@@ -381,7 +389,15 @@ const ConfigTab = () => {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => setConfig({ ...config, notebooklmGuided: !config.notebooklmGuided })}
+                                    onClick={() => {
+                                        const newValue = !config.notebooklmGuided;
+                                        setConfig({
+                                            ...config,
+                                            notebooklmGuided: newValue,
+                                            // If enabling Guided, disable Available
+                                            notebooklmAvailable: newValue ? false : config.notebooklmAvailable
+                                        });
+                                    }}
                                     className={`w-12 h-6 rounded-full relative transition-all ${config.notebooklmGuided ? 'bg-amber-500' : 'bg-slate-300'}`}
                                 >
                                     <div className={`absolute w-4 h-4 rounded-full top-1 transition-all bg-white ${config.notebooklmGuided ? 'left-7 shadow-sm' : 'left-1'}`} />
