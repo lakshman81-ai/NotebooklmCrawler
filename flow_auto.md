@@ -7,13 +7,15 @@
 1.  **Trigger**: User selects "AUTO" (or leaves default) and ensures "Web Search" is ON.
 2.  **Discovery**:
     *   System checks `outputs/discovery/urls.json` for cached URLs.
-    *   If empty, it initiates a **Scraper** (e.g., DuckDuckGo) using the `Topic` as the query.
+    *   **CRITICAL**: In the current version, the automated scraper is **disabled**.
+    *   **If Cache Empty**: The process raises a `RuntimeError` and stops.
+    *   **If Cache Found**: It proceeds to Collection.
 3.  **Collection**:
     *   Found URLs are visited using Playwright.
     *   HTML is cleaned and split into text chunks.
 4.  **AI Routing**:
-    *   **If NotebookLM Available**: Chunks are uploaded to NotebookLM as a PDF for processing.
-    *   **If NotebookLM Unavailable**: Chunks are sent to the DeepSeek API (or other configured LLM) for text generation.
+    *   **Mode A (NotebookLM Available)**: Chunks are uploaded to NotebookLM -> Evidence generated -> Evidence sent to DeepSeek -> Final Report.
+    *   **Mode B (NotebookLM Unavailable)**: Chunks are sent directly to DeepSeek -> Final Report.
 
 ## Mermaid Diagram
 
@@ -24,20 +26,21 @@ graph TD
 
     Config -- Yes --> Cache{Check Discovery Cache}
     Cache -- Found --> URLs[List of URLs]
-    Cache -- Empty --> Scraper[Run DuckDuckGo Scraper]
-    Scraper -- "Search(Topic)" --> URLs
+    Cache -- Empty --> Error[RuntimeError: No URLs Found]
 
     URLs --> Fetch[Fetch HTML Content]
     Fetch --> Clean[Clean & Chunk Text]
 
     Clean --> AI_Gate{NotebookLM Available?}
 
-    AI_Gate -- Yes --> NBLM_Upload[Upload PDF to NotebookLM]
-    NBLM_Upload --> NBLM_Gen[NotebookLM Generates Report]
+    %% Mode A: Two-Stage
+    AI_Gate -- Yes --> NBLM_Upload[Upload to NotebookLM]
+    NBLM_Upload --> NBLM_Gen[NotebookLM Evidence]
+    NBLM_Gen --> DeepSeek_A[DeepSeek Synthesis]
 
-    AI_Gate -- No --> DeepSeek[DeepSeek LLM]
-    DeepSeek --> DS_Gen[Generate Text Report]
+    %% Mode B: Fallback
+    AI_Gate -- No --> DeepSeek_B[DeepSeek Direct Synthesis]
 
-    NBLM_Gen --> End([Task Complete])
-    DS_Gen --> End
+    DeepSeek_A --> End([Task Complete])
+    DeepSeek_B --> End
 ```

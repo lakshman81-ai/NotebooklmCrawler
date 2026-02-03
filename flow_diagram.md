@@ -11,6 +11,7 @@ graph TD
     classDef backend fill:#f0fdf4,stroke:#16a34a,stroke-width:2px;
     classDef config fill:#fffbeb,stroke:#d97706,stroke-width:2px,stroke-dasharray: 5 5;
     classDef logic fill:#f8fafc,stroke:#475569,stroke-width:1px;
+    classDef error fill:#fee2e2,stroke:#ef4444,stroke-width:2px;
 
     %% --- NODES ---
 
@@ -82,12 +83,16 @@ graph TD
     EnvFile -.-> |"NOTEBOOKLM_AVAILABLE=true"| AIRouter
     AIRouter -- "Check Available AI" --> Gate_AI{NotebookLM Available?}
 
+    %% MODE A: Two-Stage (NotebookLM -> DeepSeek)
     Gate_AI -- Yes --> NotebookLM
     NotebookLM -- "Upload Chunks" --> Browser
     Browser -- "Process Content" --> NotebookLM
+    NotebookLM -- "Evidence" --> DeepSeek
+    DeepSeek -- "Synthesis" --> FinalOutput[Final Output]
 
+    %% MODE B: Fallback (DeepSeek Only)
     Gate_AI -- No --> DeepSeek
-    DeepSeek -- "LLM Inference" --> FinalOutput[Final Output]
+    DeepSeek -- "LLM Inference" --> FinalOutput
 
 ```
 
@@ -128,14 +133,12 @@ The settings in the **Config Tab** directly control the "Decision Gates" in the 
     *   **In the Code:** `NOTEBOOKLM_AVAILABLE` (Environment Variable).
     *   **What it controls:** The **"AI Router" Gate**.
     *   **Example:** You have collected 10 pages of text about "Volcanoes".
-        *   **If ON:** The system thinks, *"I will upload these 10 pages to NotebookLM to get a summary."*
-        *   **If OFF:** The system thinks, *"I cannot use NotebookLM. I will check if DeepSeek is available to summarize these pages instead."*
+        *   **If ON (Mode A):** The system uploads the text to NotebookLM to generate evidence, **THEN** sends that evidence to DeepSeek for the final report.
+        *   **If OFF (Mode B):** The system skips NotebookLM and sends the text **DIRECTLY** to DeepSeek.
 
 ### **B. "API Keys" (The Credentials)**
 
 1.  **Variable:** `DeepSeek API Key`
     *   **In the Code:** `DEEPSEEK_API_KEY` (Environment Variable).
     *   **What it controls:** Access to the **DeepSeek Driver**.
-    *   **Example:** If the "AI Router" Gate decides to use DeepSeek (because NotebookLM is off or failed), the code looks for this key.
-        *   **If Key Exists:** The system sends your text to DeepSeek's cloud for processing.
-        *   **If Key Missing:** The process will fail with an authentication error.
+    *   **Example:** In **Mode A**, DeepSeek is used for the second step. In **Mode B**, it is used for the only step. Without this key, both modes will fail at the synthesis stage.

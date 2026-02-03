@@ -1,14 +1,15 @@
 # Intelligence Source: GOOGLE / DUCKDUCKGO Execution Path
 
-*Functionally similar to AUTO, but explicitly selects the search strategy. This path emphasizes the discovery phase.*
+*Functionally similar to AUTO, but explicitly selects the search strategy.*
 
 ## Logic Flow
 
 1.  **Trigger**: User explicitly selects "GOOGLE" or "DUCKDUCKGO" in the UI.
-2.  **Strategy Selection**: The backend receives the specific source type.
-3.  **Scraping**:
-    *   Executes the specific scraper logic (currently shared via `ddg_scraper.py` for bot-friendliness).
-    *   Filters results against "Blocked Domains" (e.g., removing social media).
+2.  **Strategy Selection**: The backend receives the specific source type (e.g., "trusted" vs "general").
+3.  **Discovery (Current Constraints)**:
+    *   Like the AUTO path, `run.py` currently relies on **Cached URLs** or **Manual Override**.
+    *   It does **not** actively trigger a scraper in this version.
+    *   If no cache exists, it fails.
 4.  **Processing**:
     *   Valid URLs are passed to the standard Fetch -> Chunk -> AI Router pipeline.
 
@@ -19,12 +20,13 @@ graph TD
     Start([User Clicks Launch]) --> Input[Input: Topic + Keywords]
     Input --> Strategy[Strategy: Search Engine]
 
-    Strategy --> DDG[DuckDuckGo Scraper]
-    DDG -- "Query: Topic + Grade" --> Results[Search Results]
+    Strategy --> Check[Check Cache / Env URLs]
+    Check -- Empty --> Error[RuntimeError: Scraper Disabled]
+    Check -- Found --> URLs[Valid URLs]
 
-    Results -- "Filter Blocked Domains" --> URLs[Valid URLs]
     URLs --> Fetch[Fetch Page Content]
+    Fetch --> Clean[Clean & Chunk Text]
 
-    Fetch --> Router[Send to AI Router]
+    Clean --> Router[AI Router (NotebookLM / DeepSeek)]
     Router --> Output[Synthesis]
 ```

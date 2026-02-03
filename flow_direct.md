@@ -28,9 +28,15 @@ graph TD
     Chunker --> AI_Router[AI Router]
 
     AI_Router --> Method{Config: NotebookLM?}
-    Method -- Yes --> Upload[Upload to NotebookLM]
-    Method -- No --> LLM[DeepSeek / Local LLM]
 
-    Upload --> Final[Final Report]
+    %% Mode A
+    Method -- Yes --> Upload[Upload to NotebookLM]
+    Upload --> Evidence[Generate Evidence]
+    Evidence --> DeepSeek[DeepSeek Synthesis]
+
+    %% Mode B
+    Method -- No --> LLM[DeepSeek Direct]
+
+    DeepSeek --> Final[Final Report]
     LLM --> Final
 ```
