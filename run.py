@@ -32,7 +32,7 @@ from extractors.html_extractor import extract  # noqa: E402
 from postprocess.cleaner import clean_html  # noqa: E402
 from postprocess.chunker import chunk_sections  # noqa: E402
 from contracts.content_request import ContentRequest  # noqa: E402
-from crawler.discovery_router import filter_urls  # noqa: E402
+from crawler.discovery_router import filter_urls, discover_urls  # noqa: E402
 from postprocess.context_builder import build_context  # noqa: E402
 from outputs.composer import compose_output  # noqa: E402
 from ai_pipeline.ai_router import run_ai  # noqa: E402
@@ -65,6 +65,18 @@ def ensure_dirs():
     ]
     for d in dirs:
         Path(d).mkdir(parents=True, exist_ok=True)
+
+
+def update_discovery_cache(urls: list, source: str = "auto_discovery"):
+    ensure_dirs()
+    cache = {
+        "source": source,
+        "last_updated": datetime.now().isoformat(),
+        "urls": urls
+    }
+    with open(DISCOVERY_CACHE_PATH, "w") as f:
+        json.dump(cache, f, indent=2)
+    logger.info(f"Updated discovery cache with {len(urls)} URLs")
 
 
 def get_content_request() -> ContentRequest:
@@ -242,6 +254,29 @@ async def main():
             logger.info("Routing to NotebookLM Discovery Flow")
             ai_result = await run_ai([], ai_context, page)
         else:
+            # Active Discovery if no specific Target URL is overridden
+            if not os.getenv("TARGET_URL"):
+                logger.info("Active Search Mode Enabled")
+                # Construct Query
+                query_parts = []
+                if request.grade and request.grade.lower() != "general":
+                    query_parts.append(request.grade)
+                if request.subject:
+                    query_parts.append(request.subject)
+                if request.topic and request.topic.lower() != "analysis":
+                    query_parts.append(request.topic)
+                # Append subtopics if reasonable length
+                if request.subtopics:
+                    query_parts.extend(request.subtopics[:3]) # Limit to top 3 to avoid query bloat
+
+                query = " ".join(query_parts).strip()
+                if not query:
+                    query = "educational resources"
+
+                logger.info(f"Executing Discovery with Query: {query}")
+                discovered_urls = await discover_urls(page, query, method=discovery_method)
+                update_discovery_cache(discovered_urls)
+
             urls = get_target_urls()
             urls = filter_urls(urls, request.source_type)
             
