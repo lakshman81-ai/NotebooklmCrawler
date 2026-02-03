@@ -5,7 +5,10 @@ async def discover_urls(page: Any, query: str, max_results: int = 10, method: st
     """
     Discover URLs based on the query and method.
     """
-    if method == "ddg" or method == "auto":
+    if method == "google":
+        from discovery.google_scraper import scrape_google_search
+        return await scrape_google_search(page, query, max_results=max_results)
+    elif method == "ddg" or method == "auto":
         from discovery.ddg_scraper import scrape_ddg_search
         return await scrape_ddg_search(page, query, max_results=max_results)
 
