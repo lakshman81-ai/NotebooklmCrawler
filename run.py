@@ -34,7 +34,7 @@ from postprocess.chunker import chunk_sections  # noqa: E402
 from contracts.content_request import ContentRequest  # noqa: E402
 from crawler.discovery_router import filter_urls, discover_urls  # noqa: E402
 from postprocess.context_builder import build_context  # noqa: E402
-from outputs.composer import compose_output  # noqa: E402
+from postprocess.composer import compose_output  # noqa: E402
 from ai_pipeline.ai_router import run_ai  # noqa: E402
 
 # Load env vars
