@@ -275,6 +275,11 @@ async def main():
 
                 logger.info(f"Executing Discovery with Query: {query}")
                 discovered_urls = await discover_urls(page, query, method=discovery_method)
+
+                if not discovered_urls:
+                    logger.error("Discovery failed to find any URLs. Please check network or try a different method.")
+                    return
+
                 update_discovery_cache(discovered_urls)
 
             urls = get_target_urls()
