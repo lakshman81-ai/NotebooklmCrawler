@@ -267,7 +267,7 @@ const TextAreaField = ({ label, value, onChange, placeholder, required = false, 
 
 // --- New Components for Intelligence Source & Difficulty ---
 
-const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb }) => {
+const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onToggleSearch }) => {
     // Groups logic
     const crawlersDisabled = searchWeb; // If Web Search is ON, Crawlers are disabled
     const fetchersDisabled = !searchWeb; // If Web Search is OFF, Fetchers are disabled
@@ -295,9 +295,25 @@ const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb }) => {
 
     return (
         <div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-800 shadow-xl space-y-4 mb-6">
-            <div className="flex items-center gap-2 text-indigo-400 px-2">
-                <Bot className="w-4 h-4" />
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Intelligence Source</h3>
+            <div className="flex items-center justify-between px-2">
+                <div className="flex items-center gap-2 text-indigo-400">
+                    <Bot className="w-4 h-4" />
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Intelligence Source</h3>
+                </div>
+
+                {/* Search Web Toggle moved here */}
+                <div className="flex items-center gap-3 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700/50">
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${searchWeb ? 'text-indigo-400' : 'text-slate-500'}`}>Search Web</span>
+                    <button
+                        onClick={onToggleSearch}
+                        className={`w-8 h-4 rounded-full relative transition-colors ${searchWeb ? 'bg-indigo-500' : 'bg-slate-600'}`}
+                    >
+                        <div
+                            className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all`}
+                            style={{ left: searchWeb ? '1.1rem' : '0.15rem' }}
+                        />
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -765,6 +781,7 @@ const AutoMode = () => {
                                 onChange={(val) => setContext({ ...context, intelligenceSource: val })}
                                 config={config}
                                 searchWeb={context.searchWeb}
+                                onToggleSearch={() => setContext({ ...context, searchWeb: !context.searchWeb })}
                             />
 
                             {/* 1. Research Foundation Card */}
@@ -777,16 +794,7 @@ const AutoMode = () => {
                                         <h2 className="text-xl font-black text-slate-800 tracking-tight">Research Foundation</h2>
                                     </div>
 
-                                    {/* Refinement: Search Web Toggle */}
-                                    <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-full border border-slate-200">
-                                        <span className={`text-[9px] font-black uppercase tracking-widest ${context.searchWeb ? 'text-indigo-600' : 'text-slate-400'}`}>Search Web</span>
-                                        <button
-                                            onClick={() => setContext({ ...context, searchWeb: !context.searchWeb })}
-                                            className={`w-10 h-5 rounded-full relative transition-colors ${context.searchWeb ? 'bg-indigo-500' : 'bg-slate-300'}`}
-                                        >
-                                            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${context.searchWeb ? 'left-6' : 'left-1'}`} />
-                                        </button>
-                                    </div>
+                                    {/* Search Web Toggle REMOVED from here */}
                                 </div>
 
                                 {/* Refinement: Target URLs (Visible when Web Search OFF) */}
