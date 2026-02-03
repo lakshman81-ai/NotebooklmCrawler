@@ -9,3 +9,6 @@ pytest
 flake8
 mypy
 streamlit==1.32.0
+ddgs
+curl-cffi
+pytest-asyncio

@@ -834,7 +834,7 @@ const AutoMode = () => {
                                 <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/5">
                                     <div className="flex items-center gap-2">
                                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Discovery Stream</span>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Discovery Feed</span>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <span className="text-[9px] font-mono text-slate-600">ID: {Math.random().toString(36).substr(2, 6).toUpperCase()}</span>
