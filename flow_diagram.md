@@ -169,3 +169,98 @@ When you click that button, a chain reaction occurs:
 3.  **API Call:** It packages everything into a JSON message and shoots it to the Backend (`bridge.py`).
 4.  **Environment Setup:** The Backend reads your "Intelligence Modules" settings (from `.env`) and prepares the computer's environment.
 5.  **Launch:** The Backend starts the `run.py` script (the Orchestrator), which begins the actual work based on the Decision Gates described above.
+
+---
+
+## 4. Individual Execution Paths
+
+### Path 1: NOTEBOOKLM (End-to-End Agent)
+*This path delegates the entire research process to Google's NotebookLM via browser automation.*
+
+```mermaid
+graph TD
+    Start([User Clicks Launch]) --> Input[Input: Topic + Grade]
+    Input --> Logic{Is NotebookLM Selected?}
+    Logic -- Yes --> Browser[Launch Browser]
+
+    Browser -- "Navigate" --> Login{Is Logged In?}
+    Login -- No --> Wait[Wait for User Login]
+    Login -- Yes --> Search[Click 'Add Source' -> 'Web']
+
+    Search -- "Type Topic" --> NotebookLM_UI[NotebookLM Interface]
+    NotebookLM_UI -- "Find Sources" --> Select[Select All Sources]
+    Select -- "Import" --> Process[Processing Sources...]
+
+    Process --> Generate[Click 'Generate Report']
+    Generate --> Output[Download PDF]
+    Output --> End([Task Complete])
+```
+
+### Path 2: AUTO (Automated Discovery)
+*This path attempts to find resources automatically using search engines or a discovery cache.*
+
+```mermaid
+graph TD
+    Start([User Clicks Launch]) --> Input[Input: Topic + Grade]
+    Input --> Config{Web Search ON?}
+
+    Config -- Yes --> Cache{Check Discovery Cache}
+    Cache -- Found --> URLs[List of URLs]
+    Cache -- Empty --> Scraper[Run DuckDuckGo Scraper]
+    Scraper -- "Search(Topic)" --> URLs
+
+    URLs --> Fetch[Fetch HTML Content]
+    Fetch --> Clean[Clean & Chunk Text]
+
+    Clean --> AI_Gate{NotebookLM Available?}
+
+    AI_Gate -- Yes --> NBLM_Upload[Upload PDF to NotebookLM]
+    NBLM_Upload --> NBLM_Gen[NotebookLM Generates Report]
+
+    AI_Gate -- No --> DeepSeek[DeepSeek LLM]
+    DeepSeek --> DS_Gen[Generate Text Report]
+
+    NBLM_Gen --> End([Task Complete])
+    DS_Gen --> End
+```
+
+### Path 3: GOOGLE / DUCKDUCKGO (Explicit Search)
+*Functionally similar to AUTO, but explicitly selects the search strategy.*
+
+```mermaid
+graph TD
+    Start([User Clicks Launch]) --> Input[Input: Topic + Keywords]
+    Input --> Strategy[Strategy: Search Engine]
+
+    Strategy --> DDG[DuckDuckGo Scraper]
+    DDG -- "Query: Topic + Grade" --> Results[Search Results]
+
+    Results -- "Filter Blocked Domains" --> URLs[Valid URLs]
+    URLs --> Fetch[Fetch Page Content]
+
+    Fetch --> Router[Send to AI Router]
+    Router --> Output[Synthesis]
+```
+
+### Path 4: DIRECT (Precision Mode)
+*This path skips discovery and processes only the user-provided URLs.*
+
+```mermaid
+graph TD
+    Start([User Clicks Launch]) --> Input[Input: Target URLs]
+    Input --> Validation{Are URLs Valid?}
+
+    Validation -- Yes --> Fetch[Playwright: Visit URL]
+    Fetch -- "Extract HTML" --> Cleaner[HTML Cleaner]
+    Cleaner -- "Remove Ads/Nav" --> Content[Clean Text]
+
+    Content --> Chunker[Split into Sections]
+    Chunker --> AI_Router[AI Router]
+
+    AI_Router --> Method{Config: NotebookLM?}
+    Method -- Yes --> Upload[Upload to NotebookLM]
+    Method -- No --> LLM[DeepSeek / Local LLM]
+
+    Upload --> Final[Final Report]
+    LLM --> Final
+```
