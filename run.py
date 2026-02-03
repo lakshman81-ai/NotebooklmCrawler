@@ -34,7 +34,7 @@ from postprocess.chunker import chunk_sections  # noqa: E402
 from contracts.content_request import ContentRequest  # noqa: E402
 from crawler.discovery_router import filter_urls, discover_urls  # noqa: E402
 from postprocess.context_builder import build_context  # noqa: E402
-from outputs.composer import compose_output  # noqa: E402
+from postprocess.composer import compose_output  # noqa: E402
 from ai_pipeline.ai_router import run_ai  # noqa: E402
 
 # Load env vars
@@ -275,6 +275,11 @@ async def main():
 
                 logger.info(f"Executing Discovery with Query: {query}")
                 discovered_urls = await discover_urls(page, query, method=discovery_method)
+
+                if not discovered_urls:
+                    logger.error("Discovery failed to find any URLs. Please check network or try a different method.")
+                    return
+
                 update_discovery_cache(discovered_urls)
 
             urls = get_target_urls()
