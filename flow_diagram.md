@@ -1,167 +1,171 @@
 # Intelligence Source Program Flow & Logic
 
-## Mermaid Diagram
+## 1. System Architecture Diagram
+
+This diagram visualizes how user actions, configuration settings, and backend logic interact to execute the Research Pipeline.
 
 ```mermaid
 graph TD
-    %% Nodes
-    User([User])
-    UI[Frontend: AutoMode.jsx]
-    ConfigUI[Frontend: ConfigTab.jsx]
-    Backend[Backend: bridge.py]
-    Orchestrator[Orchestrator: run.py]
-    AIRouter[AI Router: ai_router.py]
-    NotebookLM[Driver: notebooklm.py]
-    DeepSeek[Driver: deepseek.py]
-    Browser[Browser / Playwright]
-    Cache[(Discovery Cache)]
+    %% --- STYLE DEFINITIONS ---
+    classDef ui fill:#eef2ff,stroke:#4f46e5,stroke-width:2px;
+    classDef backend fill:#f0fdf4,stroke:#16a34a,stroke-width:2px;
+    classDef config fill:#fffbeb,stroke:#d97706,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef logic fill:#f8fafc,stroke:#475569,stroke-width:1px;
 
-    %% Config Flow
-    User -- Sets Config --> ConfigUI
-    ConfigUI -- POST /api/config/save --> Backend
-    Backend -- Saves to .env --> Backend
+    %% --- NODES ---
 
-    %% Execution Flow
-    User -- Clicks 'Research Pipeline' --> UI
-    UI -- POST /api/auto/execute --> Backend
-    Backend -- Sets ENV Vars & Spawns --> Orchestrator
-
-    %% Orchestrator Logic
-    Orchestrator --> CheckMethod{Discovery Method?}
-
-    %% Branch 1: NOTEBOOKLM
-    CheckMethod -- "notebooklm" --> AIRouter
-    AIRouter -- "run_ai([], context)" --> NotebookLM
-    NotebookLM --> NBLM_Discovery{Discovery Mode}
-    NBLM_Discovery -- "Search Web" --> Browser
-    Browser -- "Interacts with UI" --> NotebookLM_Cloud[NotebookLM Cloud]
-    NotebookLM_Cloud -- "Generates Report" --> NotebookLM
-
-    %% Branch 2: AUTO / GOOGLE / DDG
-    CheckMethod -- "auto / direct" --> GetURLs[get_target_urls]
-
-    GetURLs --> CheckEnv{Target URL in Env?}
-    CheckEnv -- Yes (Direct) --> ContentCollection[Collect Chunks]
-    CheckEnv -- No (Auto) --> CheckCache{Cache Exists?}
-
-    CheckCache -- Yes --> ContentCollection
-    CheckCache -- No --> Error[RuntimeError: No URLs]
-
-    %% Content Collection
-    ContentCollection -- "Fetch & Clean" --> Browser
-    Browser -- "HTML Content" --> ContentCollection
-    ContentCollection -- "Chunks" --> AIRouter
-
-    %% AI Processing (Uploaded Content)
-    AIRouter -- "NotebookLM Available?" --> CheckNBLM{Yes/No}
-
-    CheckNBLM -- Yes --> NotebookLM
-    NotebookLM --> NBLM_Upload{Upload Mode}
-    NBLM_Upload -- "Upload PDF/Text" --> Browser
-    Browser -- "Interacts with UI" --> NotebookLM_Cloud
-    NotebookLM_Cloud -- "Generates Report" --> NotebookLM
-    NotebookLM -- "Evidence/Context" --> DeepSeek
-
-    CheckNBLM -- No (Fallback) --> DeepSeek
-    DeepSeek -- "Process Chunks" --> FinalOutput[Final Output]
-
-    %% Config Links
-    subgraph Configuration
-        Config_Modules[Intelligence Modules]
-        Config_Keys[API Keys]
+    subgraph Frontend_UI [Frontend Layer]
+        User((User))
+        ConfigTab[ConfigTab.jsx]:::ui
+        AutoMode[AutoMode.jsx]:::ui
+        GuidedPopup[GuidedModePopup]:::ui
     end
 
-    Config_Modules -.-> |"NOTEBOOKLM_AVAILABLE"| CheckNBLM
-    Config_Modules -.-> |"NOTEBOOKLM_GUIDED"| UI
-    Config_Keys -.-> |"DEEPSEEK_API_KEY"| DeepSeek
+    subgraph Configuration_Store [Configuration State]
+        EnvFile[.env File]:::config
+        BrowserStorage[LocalStorage]:::config
+    end
+
+    subgraph Backend_Server [Backend Layer]
+        Bridge[bridge.py]:::backend
+        Orchestrator[run.py]:::backend
+    end
+
+    subgraph Execution_Logic [Intelligence Logic]
+        AIRouter[ai_router.py]:::logic
+
+        subgraph Drivers
+            NotebookLM[notebooklm.py]:::logic
+            DeepSeek[deepseek.py]:::logic
+            Browser[Playwright Browser]:::logic
+        end
+    end
+
+    %% --- FLOWS ---
+
+    %% 1. Configuration Flow
+    User -- "1. Sets API Keys & Modules" --> ConfigTab
+    ConfigTab -- "POST /api/config/save" --> Bridge
+    Bridge -- "Writes Variables" --> EnvFile
+    ConfigTab -.-> |"Syncs State"| BrowserStorage
+
+    %% 2. Execution Trigger Flow
+    User -- "2. Clicks 'Research Pipeline'" --> AutoMode
+
+    %% Decision Gate: GUIDED MODE
+    EnvFile -.-> |"NOTEBOOKLM_GUIDED=true"| AutoMode
+    AutoMode -- "Check Guided Mode" --> Gate_Guided{Is Guided Mode ON?}
+    Gate_Guided -- Yes --> GuidedPopup
+    GuidedPopup -- "Show Manual Prompts" --> User
+
+    Gate_Guided -- No --> Payload[Construct JSON Payload]
+    Payload -- "POST /api/auto/execute" --> Bridge
+
+    %% 3. Backend Orchestration
+    Bridge -- "Spawns Subprocess" --> Orchestrator
+    EnvFile -.-> |"Loads Variables"| Orchestrator
+
+    Orchestrator -- "Check Discovery Method" --> Gate_Method{Method?}
+
+    %% BRANCH A: NOTEBOOKLM (Discovery)
+    Gate_Method -- "NOTEBOOKLM" --> AIRouter
+    AIRouter -- "Route: NotebookLM" --> NotebookLM
+    NotebookLM -- "Automate UI" --> Browser
+    Browser -- "Search & Generate" --> NotebookLM
+
+    %% BRANCH B: AUTO / DIRECT
+    Gate_Method -- "AUTO / DIRECT" --> UrlLogic[URL Collection]
+    UrlLogic -- "Fetch & Chunk" --> Chunks[Content Chunks]
+    Chunks --> AIRouter
+
+    %% Decision Gate: AI BACKEND
+    EnvFile -.-> |"NOTEBOOKLM_AVAILABLE=true"| AIRouter
+    AIRouter -- "Check Available AI" --> Gate_AI{NotebookLM Available?}
+
+    Gate_AI -- Yes --> NotebookLM
+    NotebookLM -- "Upload Chunks" --> Browser
+    Browser -- "Process Content" --> NotebookLM
+
+    Gate_AI -- No --> DeepSeek
+    DeepSeek -- "LLM Inference" --> FinalOutput[Final Output]
+
 ```
 
-## Detailed Explanation
+---
 
-### 1. Intelligence Sources: Inputs, Gates, & Process
+## 2. Detailed Process Explanations
 
-#### **A. NOTEBOOKLM**
-*   **Logic**: Uses Google NotebookLM's internal "Search the web" feature to discover sources dynamically based on the topic.
-*   **Inputs**:
-    *   `Topic`, `Grade`, `Subtopics` (from UI).
-    *   `Context` (constructed in `run.py`).
-*   **Decision Gates**:
-    *   **Gate 1**: `discovery_method == 'notebooklm'` (in `run.py`). Routes directly to `run_ai` without local URL collection.
-    *   **Gate 2**: Inside `notebooklm.py`, checks `discovery_method`. If 'notebooklm', executes **Source Discovery Flow**.
-*   **Output to Next Process**:
-    *   Generates a PDF Report inside NotebookLM.
-    *   Exports PDF/Summary.
-    *   Returns synthesis summary to `run_ai`.
+### **A. Intelligence Source: NOTEBOOKLM**
+*   **What it does:** This source treats Google NotebookLM as an end-to-end research assistant. It uses the browser to "drive" the NotebookLM website, asking it to search the web for your topic.
+*   **Inputs:**
+    *   **Topic**: The main subject (e.g., "Photosynthesis").
+    *   **Grade/Subtopics**: Used to refine the search query inside NotebookLM.
+*   **Decision Gates (The "If/Then" Logic):**
+    *   *Gate 1:* **Is the Discovery Method set to 'NotebookLM'?**
+        *   **If YES:** The system skips local web scraping entirely. It launches the browser, logs into NotebookLM, and types your topic into its "Search sources" bar.
+        *   **If NO:** It proceeds to other methods.
+*   **Output to Next Process:**
+    *   The result is a PDF report generated by NotebookLM, which is downloaded and saved to `outputs/final`.
 
-#### **B. AUTO / GOOGLE / DUCKDUCKGO (Web Search OFF)**
-*   **Logic**: Direct extraction from user-provided URLs.
-*   **Inputs**:
-    *   `Target URLs` (comma-separated).
-*   **Decision Gates**:
-    *   **Gate 1**: `discovery_method == 'direct'` (in `run.py`).
-    *   **Gate 2**: `get_target_urls()` finds `TARGET_URL` in environment variables.
-*   **Output to Next Process**:
-    *   URLs are fetched, cleaned, and chunked.
-    *   Chunks are passed to `run_ai`.
-    *   **If NotebookLM Available**: Chunks are compiled into a PDF, uploaded to NotebookLM, and processed (Upload Flow).
-    *   **If NotebookLM Unavailable**: Chunks are processed directly by DeepSeek (if enabled).
+### **B. Intelligence Source: AUTO (Web Search ON)**
+*   **What it does:** This mode acts like a traditional search engine. It automatically finds relevant URLs for your topic, reads them, and then synthesizes the information.
+*   **Inputs:**
+    *   **Topic**: Used as the search query (e.g., "Grade 8 Physics Force").
+    *   **Grade**: Adds context to the search (e.g., "for middle school").
+*   **Decision Gates:**
+    *   *Gate 1:* **Are there specific URLs provided?**
+        *   **If NO:** The system checks its `outputs/discovery/urls.json` cache or runs a search scraper (DuckDuckGo) to find new URLs.
+    *   *Gate 2:* **Is NotebookLM Available?** (See Configuration Linkage below).
+        *   **If YES:** The system collects the text from these websites, creates a PDF, uploads it to NotebookLM, and asks NotebookLM to write the report.
+        *   **If NO:** The system sends the text directly to the DeepSeek AI (if enabled) to write the report.
+*   **Output to Next Process:**
+    *   A list of "Chunks" (text segments) is passed to the AI Router.
 
-#### **C. AUTO / GOOGLE / DUCKDUCKGO (Web Search ON)**
-*   **Logic**: Intended to perform automated web discovery (e.g., via DuckDuckGo), but currently relies on pre-populated Discovery Cache.
-*   **Inputs**:
-    *   `Topic`, `Grade`, `Subject`.
-*   **Decision Gates**:
-    *   **Gate 1**: `discovery_method == 'auto'` (in `run.py`).
-    *   **Gate 2**: `get_target_urls()` finds no `TARGET_URL` in env. Checks `outputs/discovery/urls.json`.
-    *   **Critical Logic**: If cache is empty, `run.py` raises `RuntimeError` as it does not currently invoke `discovery_router.py` to populate URLs dynamically.
-*   **Output to Next Process**:
-    *   If URLs exist in cache: Same flow as Direct mode (Fetch -> Chunk -> AI).
+### **C. Intelligence Source: GOOGLE / DUCKDUCKGO / DIRECT (Web Search OFF)**
+*   **What it does:** This is the "Precision Mode". You give it specific URLs, and it analyzes exactly those pages—nothing else.
+*   **Inputs:**
+    *   **Target URLs**: A comma-separated list of links (e.g., `https://byjus.com/..., https://wikipedia.org/...`).
+*   **Decision Gates:**
+    *   *Gate 1:* **Is 'Web Search' toggled OFF in the UI?**
+        *   **If YES:** The system ignores the Topic for searching and strictly visits the URLs you provided.
+*   **Output to Next Process:**
+    *   Same as AUTO mode: Text chunks are extracted and sent to the AI Router for synthesis.
 
 ---
 
-### 2. Research Pipeline Execution
+## 3. Configuration Linkage: "Intelligence Modules" & "API Keys"
 
-**Event Triggered**: User clicks "LAUNCH RESEARCH PIPELINE" in `AutoMode.jsx`.
+The settings in the **Config Tab** directly control the "Decision Gates" in the diagram above. Here is how they link:
 
-**Data Flow**:
-1.  **Frontend**:
-    *   Validates inputs (`validateInput`).
-    *   Constructs payload:
-        ```json
-        {
-          "targetUrl": "...",        // Empty if Web Search ON
-          "sourceType": "notebooklm", // or auto/google/ddg
-          "config": {
-             "discoveryMethod": "...", // notebooklm, auto, or direct
-             "modes": { "D": true }    // Agentic Mode (NotebookLM Available)
-          },
-          ... // grade, topic, etc.
-        }
-        ```
-    *   Sends `POST` request to `/api/auto/execute`.
+### **A. "Intelligence Modules" (The Switches)**
 
-2.  **Backend (`bridge.py`)**:
-    *   Receives payload.
-    *   Maps payload fields to Environment Variables (e.g., `CR_TOPIC`, `TARGET_URL`, `DISCOVERY_METHOD`).
-    *   Sets `NOTEBOOKLM_AVAILABLE` based on `config.modes.D`.
-    *   Spawns `run.py` as a subprocess.
+1.  **Variable:** `NotebookLM Guided Mode`
+    *   **In the Code:** `NOTEBOOKLM_GUIDED` (Environment Variable).
+    *   **What it controls:** The **"User Interruption" Gate**.
+    *   **Example:** If you switch this **ON**, clicking "Launch Pipeline" will **STOP** the automated process. Instead, a popup appears with prompts for you to copy-paste manually. The code effectively says: *"Stop! Do not run the backend. Show the user instructions instead."*
 
-3.  **Orchestration (`run.py`)**:
-    *   Loads Environment Variables.
-    *   Initializes Browser (Playwright).
-    *   Executes logic based on `DISCOVERY_METHOD` (as described in the diagram).
+2.  **Variable:** `NotebookLM Available`
+    *   **In the Code:** `NOTEBOOKLM_AVAILABLE` (Environment Variable).
+    *   **What it controls:** The **"AI Router" Gate**.
+    *   **Example:** You have collected 10 pages of text about "Volcanoes".
+        *   **If ON:** The system thinks, *"I will upload these 10 pages to NotebookLM to get a summary."*
+        *   **If OFF:** The system thinks, *"I cannot use NotebookLM. I will check if DeepSeek is available to summarize these pages instead."*
 
----
+### **B. "API Keys" (The Credentials)**
 
-### 3. Linkage to Config Tab Variables
+1.  **Variable:** `DeepSeek API Key`
+    *   **In the Code:** `DEEPSEEK_API_KEY` (Environment Variable).
+    *   **What it controls:** Access to the **DeepSeek Driver**.
+    *   **Example:** If the "AI Router" Gate decides to use DeepSeek (because NotebookLM is off or failed), the code looks for this key.
+        *   **If Key Exists:** The system sends your text to DeepSeek's cloud for processing.
+        *   **If Key Missing:** The process will fail with an authentication error.
 
-The **Config Tab** (`ConfigTab.jsx`) manages global settings that influence the pipeline's behavior. These are linked via Backend Environment Variables.
+### **C. Summary of Events: "Research Pipeline is Clicked"**
 
-| Config Variable (UI) | Internal Variable | Linkage Mechanism | Impact on Logic |
-| :--- | :--- | :--- | :--- |
-| **Intelligence Modules** | | | |
-| `NotebookLM Available` | `notebooklmAvailable` | Saved to `.env` -> `NOTEBOOKLM_AVAILABLE` | In `ai_router.py`: Decides whether to route chunks to `run_notebooklm` or fallback directly to `run_deepseek`. |
-| `DeepSeek Available` | `deepseekAvailable` | Saved to `.env` -> `DEEPSEEK_AVAILABLE` | In `ai_router.py`: Enables fallback if NotebookLM is unavailable. |
-| `NotebookLM Guided Mode` | `notebooklmGuided` | Saved to `.env` -> `NOTEBOOKLM_GUIDED` | In `AutoMode.jsx`: If `true`, clicking Launch **STOPS** execution and opens `GuidedModePopup` with manual prompts. |
-| **API Keys** | | | |
-| `DeepSeek API Key` | `deepseekApiKey` | Saved to `.env` -> `DEEPSEEK_API_KEY` | In `deepseek.py`: Used to authenticate requests to the DeepSeek API. |
+When you click that button, a chain reaction occurs:
+
+1.  **Frontend (AutoMode.jsx):** It gathers your Grade, Topic, and URL settings.
+2.  **Validation:** It checks if you forgot to enter a Topic.
+3.  **API Call:** It packages everything into a JSON message and shoots it to the Backend (`bridge.py`).
+4.  **Environment Setup:** The Backend reads your "Intelligence Modules" settings (from `.env`) and prepares the computer's environment.
+5.  **Launch:** The Backend starts the `run.py` script (the Orchestrator), which begins the actual work based on the Decision Gates described above.
