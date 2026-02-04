@@ -358,6 +358,7 @@ const LogicDifficultySelector = ({ value, onChange }) => {
 
 // --- New Component: Running State Monitor ---
 const MissionMonitor = ({ status, progress, logs, progressLabel }) => {
+    console.log("MissionMonitor Render: status=", status);
     return (
         <div className="absolute inset-0 bg-zinc-900 z-40 flex flex-col items-center justify-center text-white animate-in fade-in duration-500">
             {/* Background Effects */}
@@ -388,10 +389,16 @@ const MissionMonitor = ({ status, progress, logs, progressLabel }) => {
 
                 {/* Status Text */}
                 <div className="text-center space-y-2">
-                    <h2 className="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
-                        {status === 'RUNNING' ? 'Mission In Progress' : 'System Standby'}
+                    <h2 className={`text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r ${
+                        status === 'FAILED' ? 'from-red-400 to-rose-600' : 'from-white to-zinc-400'
+                    }`}>
+                        {status === 'RUNNING' ? 'Mission In Progress' : status === 'FAILED' ? 'Mission Failed' : 'System Standby'}
                     </h2>
-                    <p className="text-xs font-mono text-violet-300/80 uppercase tracking-widest bg-violet-900/20 px-4 py-1.5 rounded-full inline-block">
+                    <p className={`text-xs font-mono uppercase tracking-widest px-4 py-1.5 rounded-full inline-block ${
+                        status === 'FAILED'
+                            ? 'bg-red-900/20 text-red-400 border border-red-900/50'
+                            : 'bg-violet-900/20 text-violet-300/80 border border-transparent'
+                    }`}>
                         {progressLabel || 'INITIALIZING_SEQUENCE'}
                     </p>
                 </div>
@@ -404,12 +411,23 @@ const MissionMonitor = ({ status, progress, logs, progressLabel }) => {
                         <div className="w-2 h-2 rounded-full bg-emerald-500/50" />
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1.5 mt-2">
-                        {logs.slice(0).reverse().map((log, i) => (
-                            <div key={i} className="break-words animate-in slide-in-from-left-2">
-                                <span className="text-violet-500 mr-2">➜</span>
-                                <span className={log.includes('ERROR') ? 'text-red-400' : 'text-zinc-300'}>{log}</span>
-                            </div>
-                        ))}
+                        {logs.slice(0).reverse().map((log, i) => {
+                            const isObj = typeof log === 'object';
+                            const text = isObj ? log.text : log;
+                            const level = isObj ? log.level : (text.includes('ERROR') ? 'ERROR' : 'INFO');
+
+                            let colorClass = 'text-zinc-300';
+                            if (level === 'ERROR' || text.includes('ERROR') || text.includes('CRITICAL')) colorClass = 'text-red-400 font-bold';
+                            else if (level === 'WARN') colorClass = 'text-amber-400';
+                            else if (level === 'GATE') colorClass = 'text-blue-300';
+
+                            return (
+                                <div key={i} className="break-words animate-in slide-in-from-left-2 flex gap-2">
+                                    <span className="text-violet-500 shrink-0">➜</span>
+                                    <span className={colorClass}>{text}</span>
+                                </div>
+                            );
+                        })}
                     </div>
                     <div className="h-4 bg-gradient-to-t from-black/50 to-transparent absolute bottom-0 left-0 right-0 pointer-events-none" />
                 </div>
@@ -424,6 +442,7 @@ const AutoMode = () => {
     // Top-Level State
     const [activeTab, setActiveTab] = useState('INPUT'); // 'INPUT' | 'OUTPUT'
     const [status, setStatus] = useState('IDLE'); // 'IDLE' | 'RUNNING' | 'COMPLETED' | 'FAILED'
+    console.log("AutoMode Render: status=", status);
     const [progress, setProgress] = useState(0);
     const [progressLabel, setProgressLabel] = useState('SYSTEM READY');
     const [results, setResults] = useState(null);
@@ -514,17 +533,24 @@ const AutoMode = () => {
             const data = await response.json();
 
             if (data.logs) {
-                const formattedLogs = data.logs
-                    .filter(l => typeof l === 'object' ? (l.level !== 'ERROR' && l.level !== 'WARN') : true)
-                    .map(l => typeof l === 'string' ? l : `[${l.level || 'INFO'}] ${l.message || ''}`);
+                // REVAMP: Keep all logs, including ERROR/WARN, and preserve structure
+                const formattedLogs = data.logs.map(l => {
+                    if (typeof l === 'string') return l;
+                    return {
+                        text: `[${l.level || 'INFO'}] ${l.message || ''}`,
+                        level: l.level,
+                        message: l.message
+                    };
+                });
                 setLogs(formattedLogs);
 
-                const lastLog = formattedLogs.length > 0 ? formattedLogs[formattedLogs.length - 1] : "";
+                const lastLogEntry = formattedLogs.length > 0 ? formattedLogs[formattedLogs.length - 1] : "";
+                const lastLogText = typeof lastLogEntry === 'object' ? lastLogEntry.text : lastLogEntry;
 
-                if (lastLog.includes("NotebookLM")) { setProgress(30); setProgressLabel("NOTEBOOKLM_DRIVER_ACTIVE"); }
-                else if (lastLog.includes("uploaded") || lastLog.includes("Source Discovery")) { setProgress(50); setProgressLabel("SOURCE_ACQUISITION"); }
-                else if (lastLog.includes("Chat processed") || lastLog.includes("Report Generation")) { setProgress(70); setProgressLabel("INFERENCE_ENGINE_PROCESSING"); }
-                else if (lastLog.includes("Saved") || lastLog.includes("Exporting report")) { setProgress(90); setProgressLabel("ARTIFACT_SERIALIZATION"); }
+                if (lastLogText.includes("NotebookLM")) { setProgress(30); setProgressLabel("NOTEBOOKLM_DRIVER_ACTIVE"); }
+                else if (lastLogText.includes("uploaded") || lastLogText.includes("Source Discovery")) { setProgress(50); setProgressLabel("SOURCE_ACQUISITION"); }
+                else if (lastLogText.includes("Chat processed") || lastLogText.includes("Report Generation")) { setProgress(70); setProgressLabel("INFERENCE_ENGINE_PROCESSING"); }
+                else if (lastLogText.includes("Saved") || lastLogText.includes("Exporting report")) { setProgress(90); setProgressLabel("ARTIFACT_SERIALIZATION"); }
 
                 if (data.status === 'COMPLETED') {
                     setStatus('COMPLETED');
@@ -612,8 +638,27 @@ const AutoMode = () => {
             />
 
             {/* --- Running State Overlay (Mission Monitor) --- */}
-            {status === 'RUNNING' && (
-                <MissionMonitor status={status} progress={progress} logs={logs} progressLabel={progressLabel} />
+            {(status === 'RUNNING' || status === 'FAILED') && (
+                <div className="absolute inset-0 z-50">
+                    <MissionMonitor
+                        status={status}
+                        progress={progress}
+                        logs={logs}
+                        progressLabel={progressLabel}
+                        onClose={() => setStatus('IDLE')}
+                    />
+                    {status === 'FAILED' && (
+                         <div className="absolute top-8 right-8 z-[60]">
+                             <button
+                                 onClick={() => setStatus('IDLE')}
+                                 className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider shadow-lg transition-all flex items-center gap-2"
+                             >
+                                 <X className="w-4 h-4" />
+                                 Dismiss
+                             </button>
+                         </div>
+                    )}
+                </div>
             )}
 
             {/* --- Sidebar --- */}
