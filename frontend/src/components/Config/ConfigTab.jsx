@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Download, Upload, Save, Clock, Globe, Bot, Cpu, Server, AlertCircle, Code, CheckCircle, Info, Zap, FolderOpen, Shield } from 'lucide-react';
 import { logInfo, logError, logWarn, logGate, setWorkflow, advanceWorkflow, endWorkflow } from '../../services/loggingService';
+import { useBackendStatus } from '../../hooks/useBackendStatus';
+import { API_BASE_URL } from '../../services/apiConfig';
 
 // --- Local Storage Utilities ---
 const CONFIG_STORAGE_KEY = 'orchestration_cockpit_config';
@@ -64,6 +66,7 @@ const Toggle = ({ label, description, active, onChange, color = 'indigo' }) => {
 // --- Main Component ---
 
 const ConfigTab = () => {
+    const { isOnline } = useBackendStatus();
     const [config, setConfig] = useState({
         maxTokens: 1200,
         strategy: 'section_aware',
@@ -120,41 +123,40 @@ const ConfigTab = () => {
                 setLoaded(true);
             }
 
-            // Also try backend for newest config
-            try {
-                const response = await fetch('http://localhost:8000/api/config/load');
-                if (response.ok) {
-                    const data = await response.json();
-                    logGate('ConfigTab', 'LOAD:SUCCESS', { source: 'backend', data });
-                    logInfo('ConfigTab', 'loadConfig', 'Config loaded from backend', { backendConfig: data });
-                    setConfig(prev => ({
-                        ...prev,
-                        maxTokens: data.maxTokens || prev.maxTokens,
-                        strategy: data.strategy || prev.strategy,
-                        outputType: data.outputType || prev.outputType,
-                        headless: data.headless ?? prev.headless,
-                        chromeUserDataDir: data.chromeUserDataDir || prev.chromeUserDataDir,
-                        discoveryMethod: data.discoveryMethod || prev.discoveryMethod,
-                        notebooklmAvailable: data.notebooklmAvailable ?? prev.notebooklmAvailable,
-                        deepseekAvailable: data.deepseekAvailable ?? prev.deepseekAvailable,
-                        notebooklmGuided: data.notebooklmGuided ?? prev.notebooklmGuided,
-                        trustedDomains: data.trustedDomains || prev.trustedDomains,
-                        blockedDomains: data.blockedDomains || prev.blockedDomains
-                    }));
-                    setLoaded(true);
+            // Also try backend for newest config if online
+            if (isOnline) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/config/load`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        logGate('ConfigTab', 'LOAD:SUCCESS', { source: 'backend', data });
+                        logInfo('ConfigTab', 'loadConfig', 'Config loaded from backend', { backendConfig: data });
+                        setConfig(prev => ({
+                            ...prev,
+                            maxTokens: data.maxTokens || prev.maxTokens,
+                            strategy: data.strategy || prev.strategy,
+                            outputType: data.outputType || prev.outputType,
+                            headless: data.headless ?? prev.headless,
+                            chromeUserDataDir: data.chromeUserDataDir || prev.chromeUserDataDir,
+                            discoveryMethod: data.discoveryMethod || prev.discoveryMethod,
+                            notebooklmAvailable: data.notebooklmAvailable ?? prev.notebooklmAvailable,
+                            deepseekAvailable: data.deepseekAvailable ?? prev.deepseekAvailable,
+                            notebooklmGuided: data.notebooklmGuided ?? prev.notebooklmGuided,
+                            trustedDomains: data.trustedDomains || prev.trustedDomains,
+                            blockedDomains: data.blockedDomains || prev.blockedDomains
+                        }));
+                    }
+                } catch (e) {
+                    logGate('ConfigTab', 'LOAD:WARN', { message: 'Backend unavailable' });
+                    logWarn('ConfigTab', 'loadConfig', 'Backend not available, using localStorage only', { error: e.message });
                 }
-            } catch (e) {
-                logGate('ConfigTab', 'LOAD:WARN', { message: 'Backend unavailable' });
-                logWarn('ConfigTab', 'loadConfig', 'Backend not available, using localStorage only', { error: e.message });
             }
 
+            setLoaded(true);
             logGate('ConfigTab', 'LOAD:EXIT', { loaded });
-            if (!loaded) {
-                setLoaded(true);
-            }
         };
         loadConfig();
-    }, []);
+    }, [isOnline]);
 
     const handleSave = async () => {
         setSaving(true);
@@ -189,18 +191,20 @@ const ConfigTab = () => {
 
         // Strategy 1: Try backend first
         let backendSuccess = false;
-        try {
-            const response = await fetch('http://localhost:8000/api/config/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(configData)
-            });
-            if (response.ok) {
-                backendSuccess = true;
-                logInfo('ConfigTab', 'handleSave', 'Config saved to backend successfully');
+        if (isOnline) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/config/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(configData)
+                });
+                if (response.ok) {
+                    backendSuccess = true;
+                    logInfo('ConfigTab', 'handleSave', 'Config saved to backend successfully');
+                }
+            } catch (e) {
+                logWarn('ConfigTab', 'handleSave', 'Backend not available, falling back to localStorage', { error: e.message });
             }
-        } catch (e) {
-            logWarn('ConfigTab', 'handleSave', 'Backend not available, falling back to localStorage', { error: e.message });
         }
 
         // Strategy 2: Always save to local storage as backup
@@ -223,7 +227,7 @@ const ConfigTab = () => {
         setSaving(false);
     };
 
-    console.log('[ConfigTab] Rendering with config:', config);
+    // console.log('[ConfigTab] Rendering with config:', config);
 
     return (
         <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -549,6 +553,7 @@ const ConfigTab = () => {
                     <div>
                         <div className="text-sm font-black text-slate-900 tracking-tight underline decoration-emerald-500 decoration-2 underline-offset-4">Commit Changes to Storage</div>
                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Configuration persists in localStorage</div>
+                        {!isOnline && <div className="text-[9px] text-amber-500 font-bold uppercase tracking-widest mt-1">Backend Offline - Local Save Only</div>}
                     </div>
                 </div>
                 <button

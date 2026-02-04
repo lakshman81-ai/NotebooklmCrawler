@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Play, ShieldCheck, Activity, Terminal, Globe, Bot, Download, Check, Link as LinkIcon, Search, Layers, FileText, Cpu, Zap, AlertCircle, AlertTriangle, CheckCircle, BookOpen, HelpCircle, Layout, ClipboardList, Folder, ChevronRight, X, Copy, StickyNote, Clipboard, Loader2, Sparkles, ArrowRight } from 'lucide-react';
+import { Play, ShieldCheck, Activity, Terminal, Globe, Bot, Download, Check, Link as LinkIcon, Search, Layers, FileText, Cpu, Zap, AlertCircle, AlertTriangle, CheckCircle, BookOpen, HelpCircle, Layout, ClipboardList, Folder, ChevronRight, X, Copy, StickyNote, Clipboard, Loader2, Sparkles, ArrowRight, ExternalLink } from 'lucide-react';
 import { logGate } from '../../services/loggingService';
+import { useBackendStatus } from '../../hooks/useBackendStatus';
+import { API_BASE_URL } from '../../services/apiConfig';
 
 // --- Guided Mode Popup Component ---
 const GuidedModePopup = ({ isOpen, onClose, context }) => {
@@ -89,8 +91,8 @@ const GuidedModePopup = ({ isOpen, onClose, context }) => {
                             <Bot className="w-6 h-6" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-zinc-800">NotebookLM Guided Mode</h2>
-                            <p className="text-sm text-zinc-500">Manual orchestration helper</p>
+                            <h2 className="text-xl font-bold text-zinc-800">Static Mode Generator</h2>
+                            <p className="text-sm text-zinc-500">Manual orchestration helper (Offline/GitHub Pages)</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-zinc-100 rounded-full transition-colors">
@@ -100,9 +102,20 @@ const GuidedModePopup = ({ isOpen, onClose, context }) => {
 
                 <div className="p-8 space-y-8 overflow-y-auto max-h-[60vh] custom-scrollbar">
                     <div className="space-y-3">
-                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest pl-1">
-                            Step 1: Input Source Context
-                        </label>
+                        <div className="flex justify-between items-center pl-1">
+                            <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                                Step 1: Input Source Context (Search Query)
+                            </label>
+                            {context.searchWeb && (
+                                <button
+                                    onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(inputPrompt)}`, '_blank')}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold transition-all"
+                                >
+                                    <Search className="w-3 h-3" />
+                                    Open Google Search
+                                </button>
+                            )}
+                        </div>
                         <div className="relative group">
                             <textarea
                                 readOnly
@@ -115,7 +128,7 @@ const GuidedModePopup = ({ isOpen, onClose, context }) => {
                     <div className="space-y-3">
                         <div className="flex items-center justify-between pl-1">
                             <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                                Step 2: Output Prompt
+                                Step 2: Output Prompt (For AI Model)
                             </label>
                             <button
                                 onClick={() => copyToClipboard(outputPromptText)}
@@ -214,8 +227,8 @@ const TextAreaField = ({ label, value, onChange, placeholder, required = false, 
 );
 
 // --- Modern Intelligence Source Selector ---
-const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onToggleSearch }) => {
-    const crawlersDisabled = searchWeb;
+const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onToggleSearch, isOffline }) => {
+    const crawlersDisabled = searchWeb || isOffline; // Disable crawlers if offline
     const fetchersDisabled = !searchWeb;
 
     const SourceButton = ({ id, label, icon: Icon, disabled, subText }) => (
@@ -262,7 +275,7 @@ const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onTogg
 
             <div className="grid grid-cols-2 gap-4">
                 <div className={`space-y-3 p-3 rounded-2xl bg-zinc-50/50 border border-dashed border-zinc-200 ${crawlersDisabled ? 'opacity-40 grayscale' : ''}`}>
-                    <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest text-center">AI Crawlers</div>
+                    <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest text-center">AI Crawlers {isOffline ? '(Offline)' : ''}</div>
                     <div className="grid grid-cols-1 gap-2">
                         <SourceButton
                             id="AUTO"
@@ -358,7 +371,7 @@ const LogicDifficultySelector = ({ value, onChange }) => {
 
 // --- New Component: Running State Monitor ---
 const MissionMonitor = ({ status, progress, logs, progressLabel }) => {
-    console.log("MissionMonitor Render: status=", status);
+    // console.log("MissionMonitor Render: status=", status);
     return (
         <div className="absolute inset-0 bg-zinc-900 z-40 flex flex-col items-center justify-center text-white animate-in fade-in duration-500">
             {/* Background Effects */}
@@ -439,10 +452,13 @@ const MissionMonitor = ({ status, progress, logs, progressLabel }) => {
 // --- Main Component ---
 
 const AutoMode = () => {
+    const { isOnline } = useBackendStatus();
+    const isOffline = isOnline === false;
+
     // Top-Level State
     const [activeTab, setActiveTab] = useState('INPUT'); // 'INPUT' | 'OUTPUT'
     const [status, setStatus] = useState('IDLE'); // 'IDLE' | 'RUNNING' | 'COMPLETED' | 'FAILED'
-    console.log("AutoMode Render: status=", status);
+    // console.log("AutoMode Render: status=", status);
     const [progress, setProgress] = useState(0);
     const [progressLabel, setProgressLabel] = useState('SYSTEM READY');
     const [results, setResults] = useState(null);
@@ -476,16 +492,24 @@ const AutoMode = () => {
 
     useEffect(() => {
         const loadConfig = async () => {
+            if (!isOnline) return;
             try {
-                const response = await fetch('http://localhost:8000/api/config/load');
+                const response = await fetch(`${API_BASE_URL}/api/config/load`);
                 if (response.ok) {
                     const data = await response.json();
                     setConfig(prev => ({ ...prev, ...data }));
                 }
             } catch (e) { console.log('Config load skipped'); }
         };
-        loadConfig();
-    }, []);
+        if (isOnline) loadConfig();
+    }, [isOnline]);
+
+    useEffect(() => {
+        // If offline, default to Search Web (Fetchers) as Crawlers are server-side
+        if (isOffline && !context.searchWeb) {
+            setContext(prev => ({ ...prev, searchWeb: true, intelligenceSource: 'GOOGLE' }));
+        }
+    }, [isOffline]);
 
     useEffect(() => {
         const savedContext = localStorage.getItem('dashboard_context');
@@ -528,8 +552,9 @@ const AutoMode = () => {
     };
 
     const checkStatus = async () => {
+        if (!isOnline) return;
         try {
-            const response = await fetch(`http://localhost:8000/api/logs`);
+            const response = await fetch(`${API_BASE_URL}/api/logs`);
             const data = await response.json();
 
             if (data.logs) {
@@ -573,7 +598,11 @@ const AutoMode = () => {
     }, [status]);
 
     const handleOpenFolder = async (path) => {
-        try { await fetch(`http://localhost:8000/api/explore?path=${encodeURIComponent(path)}`); } catch (e) {}
+        if (isOffline) {
+            alert("File system access is unavailable in Static Mode.");
+            return;
+        }
+        try { await fetch(`${API_BASE_URL}/api/explore?path=${encodeURIComponent(path)}`); } catch (e) {}
     };
 
     const handleLaunch = async () => {
@@ -581,7 +610,9 @@ const AutoMode = () => {
             setLogs(prev => [`[VALIDATION_ERROR] Check input fields`, ...prev]);
             return;
         }
-        if (config.notebooklmGuided) {
+
+        // Offline / Static Mode Intercept
+        if (isOffline || config.notebooklmGuided) {
             setShowGuidedPopup(true);
             return;
         }
@@ -592,8 +623,7 @@ const AutoMode = () => {
         setLogs(['[SYSTEM] Initiating mission protocol...', `[CONFIG] Source: ${context.intelligenceSource}`]);
 
         try {
-            const backendUrl = `http://localhost:8000`;
-            const response = await fetch(`${backendUrl}/api/auto/execute`, {
+            const response = await fetch(`${API_BASE_URL}/api/auto/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -704,6 +734,7 @@ const AutoMode = () => {
                                 config={config}
                                 searchWeb={context.searchWeb}
                                 onToggleSearch={() => setContext({ ...context, searchWeb: !context.searchWeb })}
+                                isOffline={isOffline}
                             />
 
                             {/* Research Foundation */}
@@ -834,13 +865,14 @@ const AutoMode = () => {
                             <div className="mt-auto">
                                 <button
                                     onClick={handleLaunch}
-                                    className="w-full py-5 bg-zinc-900 text-white rounded-2xl font-black text-lg tracking-tight hover:bg-zinc-800 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-zinc-300 flex items-center justify-center gap-3 group"
+                                    className={`w-full py-5 text-white rounded-2xl font-black text-lg tracking-tight hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-zinc-300 flex items-center justify-center gap-3 group ${isOffline ? 'bg-zinc-700 hover:bg-zinc-600' : 'bg-zinc-900 hover:bg-zinc-800'}`}
                                 >
-                                    <span>INITIALIZE MISSION</span>
+                                    <span>{isOffline ? 'GENERATE MANUAL PROMPTS' : 'INITIALIZE MISSION'}</span>
                                     <div className="p-1 bg-white/10 rounded-full group-hover:bg-white/20 transition-colors">
                                         <ArrowRight className="w-4 h-4" />
                                     </div>
                                 </button>
+                                {isOffline && <p className="text-[10px] text-center text-zinc-400 mt-2 uppercase tracking-widest">Static Mode Active (No Backend)</p>}
                             </div>
                         </div>
                     </div>

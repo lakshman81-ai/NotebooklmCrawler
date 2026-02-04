@@ -4,6 +4,7 @@
  * Provides structured logging for debugging and audit trail.
  * Logs include: timestamp, level, component, function, message, data
  */
+import { API_BASE_URL } from './apiConfig';
 
 // Log levels
 export const LOG_LEVELS = {
@@ -195,7 +196,7 @@ export function loadPersistedLogs() {
  */
 export async function fetchBackendLogs() {
     try {
-        let url = 'http://localhost:8000/api/logs';
+        let url = `${API_BASE_URL}/api/logs`;
         if (lastBackendTimestamp) {
             url += `?since=${encodeURIComponent(lastBackendTimestamp)}`;
         }
