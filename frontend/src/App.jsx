@@ -5,11 +5,13 @@ import LogsTab from './components/Logs/LogsTab';
 import AdminTab from './components/Admin/AdminTab';
 import TemplatesTab from './components/Templates/TemplatesTab';
 import InstructionToJulesTab from './components/InstructionToJules/InstructionToJulesTab';
-import { LayoutDashboard, Settings, ShieldAlert, Activity, FileSpreadsheet, MessageSquare, Terminal } from 'lucide-react';
+import { LayoutDashboard, Settings, ShieldAlert, Activity, FileSpreadsheet, MessageSquare, Terminal, Wifi, WifiOff } from 'lucide-react';
+import { useBackendStatus } from './hooks/useBackendStatus';
 
 function App() {
     const [activeTab, setActiveTab] = useState('DASHBOARD');
     const [results, setResults] = useState(null);
+    const { isOnline } = useBackendStatus();
 
     const renderContent = () => {
         switch (activeTab) {
@@ -51,8 +53,22 @@ function App() {
                             v2.2 Production
                         </div>
                         <div className="text-sm font-medium text-slate-600 border-l border-slate-200 pl-4 flex items-center gap-2">
-                            <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />
-                            Live
+                            {isOnline === true ? (
+                                <>
+                                    <Wifi className="w-3 h-3 text-emerald-500" />
+                                    <span className="text-emerald-700 font-bold">Connected</span>
+                                </>
+                            ) : isOnline === false ? (
+                                <>
+                                    <WifiOff className="w-3 h-3 text-amber-500" />
+                                    <span className="text-amber-700 font-bold">Static Mode</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Activity className="w-3 h-3 text-slate-400 animate-spin" />
+                                    <span>Checking...</span>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>

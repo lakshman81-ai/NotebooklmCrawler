@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Shield, Globe, Video, UserCheck, Bot, Cpu, Zap } from 'lucide-react';
+import { checkBackendHealth } from '../../services/apiConfig';
 
 const SettingsPanel = ({ settings, setSettings }) => {
     const [testStatus, setTestStatus] = useState(null); // null, 'testing', 'success', 'error'
@@ -13,9 +14,8 @@ const SettingsPanel = ({ settings, setSettings }) => {
 
     const testConnection = async () => {
         setTestStatus('testing');
-        setTimeout(() => {
-            setTestStatus('success');
-        }, 1500);
+        const isHealthy = await checkBackendHealth();
+        setTestStatus(isHealthy ? 'success' : 'error');
     };
 
     return (
