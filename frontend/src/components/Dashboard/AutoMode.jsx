@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Play, ShieldCheck, Activity, Terminal, Globe, Bot, Download, Check, Link as LinkIcon, Search, Layers, FileText, Cpu, Zap, AlertCircle, AlertTriangle, CheckCircle, BookOpen, HelpCircle, Layout, ClipboardList, Folder, ChevronRight, X, Copy, StickyNote, Clipboard, Loader2, Sparkles, ArrowRight } from 'lucide-react';
-import { logGate } from '../../services/loggingService';
+import { logGate, logInfo, logError, logWarn } from '../../services/loggingService';
 
 // --- Guided Mode Popup Component ---
 const GuidedModePopup = ({ isOpen, onClose, context }) => {
@@ -448,6 +448,7 @@ const AutoMode = () => {
     const [results, setResults] = useState(null);
     const [showGuidedPopup, setShowGuidedPopup] = useState(false);
     const [logs, setLogs] = useState([]);
+    const [consecutiveFailures, setConsecutiveFailures] = useState(0);
 
     const [outputView, setOutputView] = useState('SYNTHESIS');
 
@@ -530,7 +531,11 @@ const AutoMode = () => {
     const checkStatus = async () => {
         try {
             const response = await fetch(`http://localhost:8000/api/logs`);
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
             const data = await response.json();
+            setConsecutiveFailures(0); // Reset on success
 
             if (data.logs) {
                 // REVAMP: Keep all logs, including ERROR/WARN, and preserve structure
@@ -563,7 +568,22 @@ const AutoMode = () => {
                     setProgressLabel("MISSION_FAILED");
                 }
             }
-        } catch (e) { console.error("Polling error", e); }
+        } catch (e) {
+            console.error("Polling error", e);
+            setConsecutiveFailures(prev => {
+                const newCount = prev + 1;
+                if (newCount > 5) {
+                    setStatus('FAILED');
+                    setProgressLabel("CONNECTION_LOST");
+                    setLogs(prevLogs => [
+                        ...prevLogs,
+                        { text: "[CRITICAL] Backend connection lost. Max retries exceeded.", level: "ERROR" }
+                    ]);
+                    logError('AutoMode', 'checkStatus', 'Backend connection lost', { error: e.message });
+                }
+                return newCount;
+            });
+        }
     };
 
     useEffect(() => {
@@ -577,15 +597,20 @@ const AutoMode = () => {
     };
 
     const handleLaunch = async () => {
+        logGate('AutoMode', 'LAUNCH:ENTRY', { context });
+
         if (!validateInput()) {
+            logGate('AutoMode', 'VALIDATE:ERROR', { errors });
             setLogs(prev => [`[VALIDATION_ERROR] Check input fields`, ...prev]);
             return;
         }
+
         if (config.notebooklmGuided) {
             setShowGuidedPopup(true);
             return;
         }
 
+        logGate('AutoMode', 'LAUNCH:START', { config });
         setStatus('RUNNING');
         setActiveTab('INPUT');
         setProgress(5);
@@ -618,9 +643,18 @@ const AutoMode = () => {
                     }
                 })
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
             const data = await response.json();
             if (!data.success) throw new Error(data.detail || 'Execution failed');
+
+            logGate('AutoMode', 'LAUNCH:SUCCESS', { executionId: data.executionId });
+
         } catch (error) {
+            logGate('AutoMode', 'LAUNCH:ERROR', { error: error.message });
             setLogs(prev => [`[CRITICAL] ${error.message}`, ...prev]);
             setStatus('FAILED');
         }
