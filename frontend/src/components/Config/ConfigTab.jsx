@@ -78,7 +78,7 @@ const ConfigTab = () => {
         notebooklmAvailable: true,
         deepseekAvailable: false,
         notebooklmGuided: true,
-        trustedDomains: 'byjus.com, vedantu.com, khanacademy.org',
+        trustedDomains: 'byjus.com, vedantu.com, khanacademy.org, ncert.nic.in, toppr.com, meritnation.com',
         blockedDomains: 'duckduckgo.com, youtube.com, facebook.com, twitter.com, instagram.com, pinterest.com, linkedin.com, amazon.com',
         // API Keys (Phase 4)
         geminiApiKey: '',
@@ -113,7 +113,7 @@ const ConfigTab = () => {
                     notebooklmAvailable: localConfig.notebooklmAvailable !== false,
                     deepseekAvailable: localConfig.deepseekAvailable || false,
                     notebooklmGuided: localConfig.notebooklmGuided || false,
-                    trustedDomains: localConfig.trustedDomains || 'byjus.com, vedantu.com, khanacademy.org',
+                    trustedDomains: localConfig.trustedDomains || 'byjus.com, vedantu.com, khanacademy.org, ncert.nic.in, toppr.com, meritnation.com',
                     blockedDomains: localConfig.blockedDomains || 'duckduckgo.com, youtube.com, facebook.com, twitter.com, instagram.com, pinterest.com, linkedin.com, amazon.com',
                     // API Keys
                     geminiApiKey: localConfig.geminiApiKey || '',
@@ -432,7 +432,7 @@ const ConfigTab = () => {
                             className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-mono text-xs text-slate-700 min-h-[100px]"
                             value={config.trustedDomains}
                             onChange={(e) => setConfig({ ...config, trustedDomains: e.target.value })}
-                            placeholder="byjus.com, vedantu.com, khanacademy.org"
+                        placeholder="byjus.com, vedantu.com, khanacademy.org, ncert.nic.in, toppr.com, meritnation.com"
                         />
                         <p className="text-[9px] text-slate-400 pl-1">
                             Domains used when Source Type is 'trusted'

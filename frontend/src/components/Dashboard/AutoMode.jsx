@@ -4,27 +4,82 @@ import { logGate } from '../../services/loggingService';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
 import { API_BASE_URL } from '../../services/apiConfig';
 
+// --- Query Builder Logic (Report Implementation) ---
+const buildEducationalQuery = (context, config) => {
+    if (context.targetUrls && !context.searchWeb) {
+        return `Please analyze the following URLs:\n${context.targetUrls}`;
+    }
+
+    const parts = [];
+
+    // 1. Grade Constraint (High Priority)
+    if (context.grade) {
+        parts.push(`"Grade ${context.grade}"`);
+    }
+
+    // 2. Subject (High Priority)
+    if (context.subject) {
+        parts.push(context.subject);
+    }
+
+    // 3. Topic (Medium Priority, quoted if multi-word)
+    if (context.topic) {
+        const topic = context.topic.includes(' ') ? `"${context.topic}"` : context.topic;
+        parts.push(topic);
+    }
+
+    // 4. Subtopics (Medium Priority) - Adding as keywords
+    if (context.subtopics) {
+        // Simple heuristic: just add them. If multi-word, maybe quote?
+        // For now, keep it simple to avoid over-constraining.
+        parts.push(context.subtopics);
+    }
+
+    // 5. Content Type Terms (Contextual)
+    const contentTerms = [];
+    if (context.outputs?.studyGuide) contentTerms.push('concept', 'explanation', 'reasoning');
+    if (context.outputs?.handout) contentTerms.push('diagram', 'flowchart', 'infographic');
+    if (context.outputs?.quiz) contentTerms.push('worksheet', 'exercise', 'practice');
+
+    // Default to concept if nothing selected or just general search
+    if (contentTerms.length === 0) contentTerms.push('concept', 'explanation');
+
+    // Deduplicate
+    const uniqueTerms = [...new Set(contentTerms)];
+    if (uniqueTerms.length > 0) {
+        parts.push(`(${uniqueTerms.join(' OR ')})`);
+    }
+
+    // 6. Trusted Sites (Optional restriction)
+    if (context.useTrustedSites && config.trustedDomains) {
+        const sites = config.trustedDomains.split(',').map(s => s.trim()).filter(s => s);
+        if (sites.length > 0) {
+            const siteClauses = sites.map(s => `site:${s}`);
+            parts.push(`(${siteClauses.join(' OR ')})`);
+        }
+    }
+
+    // 7. Scrape Keywords (Extra)
+    if (context.keywordsScrape) {
+        parts.push(context.keywordsScrape);
+    }
+
+    return parts.join(' ');
+};
+
 // --- Guided Mode Popup Component ---
-const GuidedModePopup = ({ isOpen, onClose, context }) => {
+const GuidedModePopup = ({ isOpen, onClose, context, config }) => {
     const [logs, setLogs] = useState([]);
     const [copiedOutput, setCopiedOutput] = useState(false);
     const [outputPromptText, setOutputPromptText] = useState('');
+    const [inputPromptText, setInputPromptText] = useState('');
 
-    const generateInputPrompt = () => {
-        if (context.targetUrls && !context.searchWeb) {
-            return `Please analyze the following URLs:\n${context.targetUrls}`;
+    // Initialize/Update prompts when context/config changes
+    useEffect(() => {
+        if (isOpen) {
+            setInputPromptText(buildEducationalQuery(context, config));
         }
-        const queryParts = [];
-        if (context.grade) queryParts.push(`Grade ${context.grade}`);
-        if (context.subject) queryParts.push(context.subject);
-        if (context.topic) queryParts.push(`on the topic of '${context.topic}'`);
-
-        let query = `Search for high-quality educational resources, detailed study materials, and structured worksheets for ${queryParts.join(' ')}.`;
-        if (context.subtopics) query += ` Focus on these subtopics: ${context.subtopics}.`;
-        if (context.keywordsScrape) query += ` Include information about: ${context.keywordsScrape}.`;
-        query += ` Please prioritize results from reliable educational websites like byjus.com, ncert.nic.in, and khanacademy.org.`;
-        return query;
-    };
+    }, [isOpen, context, config]);
 
     const generateOutputPrompt = () => {
         const sections = [];
@@ -73,7 +128,6 @@ const GuidedModePopup = ({ isOpen, onClose, context }) => {
         setTimeout(() => setCopiedOutput(false), 2000);
     };
 
-    const inputPrompt = generateInputPrompt();
     const outputPrompt = generateOutputPrompt();
 
     useEffect(() => {
@@ -108,7 +162,7 @@ const GuidedModePopup = ({ isOpen, onClose, context }) => {
                             </label>
                             {context.searchWeb && (
                                 <button
-                                    onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(inputPrompt)}`, '_blank')}
+                                    onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(inputPromptText)}`, '_blank')}
                                     className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold transition-all"
                                 >
                                     <Search className="w-3 h-3" />
@@ -118,9 +172,9 @@ const GuidedModePopup = ({ isOpen, onClose, context }) => {
                         </div>
                         <div className="relative group">
                             <textarea
-                                readOnly
-                                value={inputPrompt}
-                                className="w-full h-32 p-4 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-mono text-zinc-600 resize-none focus:outline-none"
+                                value={inputPromptText}
+                                onChange={(e) => setInputPromptText(e.target.value)}
+                                className="w-full h-32 p-4 bg-white border-2 border-violet-100 rounded-xl text-sm font-mono text-zinc-700 resize-none focus:outline-none focus:border-violet-500 shadow-sm"
                             />
                         </div>
                     </div>
@@ -227,7 +281,7 @@ const TextAreaField = ({ label, value, onChange, placeholder, required = false, 
 );
 
 // --- Modern Intelligence Source Selector ---
-const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onToggleSearch, isOffline }) => {
+const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onToggleSearch, isOffline, useTrustedSites, onToggleTrustedSites }) => {
     const crawlersDisabled = searchWeb || isOffline; // Disable crawlers if offline
     const fetchersDisabled = !searchWeb;
 
@@ -262,14 +316,28 @@ const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onTogg
                     <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500">Intelligence Source</h3>
                 </div>
 
-                <div className="flex items-center gap-3 bg-zinc-100 p-1 rounded-full border border-zinc-200">
-                    <span className={`px-3 text-[9px] font-bold uppercase tracking-widest transition-colors ${searchWeb ? 'text-zinc-800' : 'text-zinc-400'}`}>Search Web</span>
-                    <button
-                        onClick={onToggleSearch}
-                        className={`h-6 w-10 rounded-full relative transition-all duration-300 ${searchWeb ? 'bg-violet-600' : 'bg-zinc-300'}`}
-                    >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ${searchWeb ? 'left-[22px]' : 'left-1'}`} />
-                    </button>
+                <div className="flex gap-4">
+                    <div className="flex items-center gap-3 bg-zinc-100 p-1 rounded-full border border-zinc-200">
+                        <span className={`px-3 text-[9px] font-bold uppercase tracking-widest transition-colors ${searchWeb ? 'text-zinc-800' : 'text-zinc-400'}`}>Search Web</span>
+                        <button
+                            onClick={onToggleSearch}
+                            className={`h-6 w-10 rounded-full relative transition-all duration-300 ${searchWeb ? 'bg-violet-600' : 'bg-zinc-300'}`}
+                        >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ${searchWeb ? 'left-[22px]' : 'left-1'}`} />
+                        </button>
+                    </div>
+
+                    {searchWeb && (
+                        <div className="flex items-center gap-3 bg-zinc-100 p-1 rounded-full border border-zinc-200 animate-in fade-in slide-in-from-left-2">
+                            <span className={`px-3 text-[9px] font-bold uppercase tracking-widest transition-colors ${useTrustedSites ? 'text-zinc-800' : 'text-zinc-400'}`}>Trusted Sites</span>
+                            <button
+                                onClick={onToggleTrustedSites}
+                                className={`h-6 w-10 rounded-full relative transition-all duration-300 ${useTrustedSites ? 'bg-emerald-500' : 'bg-zinc-300'}`}
+                            >
+                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ${useTrustedSites ? 'left-[22px]' : 'left-1'}`} />
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -480,14 +548,16 @@ const AutoMode = () => {
         localFilePath: '',
         outputs: { studyGuide: true, quiz: true, handout: false },
         quizConfig: { mcq: 10, ar: 5, detailed: 3, custom: '' },
-        difficulty: 'Connect'
+        difficulty: 'Connect',
+        useTrustedSites: true // Default enabled for better quality
     });
 
     const [errors, setErrors] = useState({});
     const [config, setConfig] = useState({
         maxTokens: 2000, strategy: 'section_aware', model: 'gpt-4-turbo', headless: false,
         chromeUserDataDir: '', discoveryMethod: 'notebooklm', notebooklmAvailable: true,
-        deepseekAvailable: false, notebooklmGuided: false
+        deepseekAvailable: false, notebooklmGuided: false,
+        trustedDomains: 'byjus.com, vedantu.com, khanacademy.org, ncert.nic.in, toppr.com, meritnation.com'
     });
 
     useEffect(() => {
@@ -735,6 +805,8 @@ const AutoMode = () => {
                                 searchWeb={context.searchWeb}
                                 onToggleSearch={() => setContext({ ...context, searchWeb: !context.searchWeb })}
                                 isOffline={isOffline}
+                                useTrustedSites={context.useTrustedSites}
+                                onToggleTrustedSites={() => setContext({ ...context, useTrustedSites: !context.useTrustedSites })}
                             />
 
                             {/* Research Foundation */}
