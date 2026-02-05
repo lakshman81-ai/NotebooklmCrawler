@@ -86,7 +86,8 @@ const TemplatesTab = () => {
             custom: ''
         },
         keywordsScrape: '',
-        keywordsReport: ''
+        keywordsReport: '',
+        targetUrls: ''
     });
 
     // Unified Initialization Effect (Load Config + Load State + Regenerate)
@@ -107,7 +108,8 @@ const TemplatesTab = () => {
                         outputs: parsed.outputs || currentSettings.outputs,
                         quizConfig: parsed.quizConfig || currentSettings.quizConfig,
                         keywordsScrape: parsed.keywordsScrape || currentSettings.keywordsScrape,
-                        keywordsReport: parsed.keywordsReport || currentSettings.keywordsReport
+                        keywordsReport: parsed.keywordsReport || currentSettings.keywordsReport,
+                        targetUrls: parsed.targetUrls || currentSettings.targetUrls
                     };
                     setDashboardSettings(currentSettings);
                 } catch (e) {

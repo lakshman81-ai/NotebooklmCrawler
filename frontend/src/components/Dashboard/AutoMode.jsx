@@ -68,11 +68,26 @@ const buildEducationalQuery = (context, config) => {
 };
 
 // --- Guided Mode Popup Component ---
-const GuidedModePopup = ({ isOpen, onClose, context, config }) => {
+const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) => {
     const [logs, setLogs] = useState([]);
     const [copiedOutput, setCopiedOutput] = useState(false);
     const [outputPromptText, setOutputPromptText] = useState('');
     const [inputPromptText, setInputPromptText] = useState('');
+    const [pastedResults, setPastedResults] = useState('');
+
+    const handlePasteResults = (e) => {
+        const text = e.target.value;
+        setPastedResults(text);
+
+        // Extract URLs
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const matches = text.match(urlRegex);
+        if (matches && matches.length > 0 && onUpdateContext) {
+             const uniqueUrls = [...new Set(matches)];
+             // Update targetUrls in context (replacing existing to avoid duplicates/confusion)
+             onUpdateContext(prev => ({ ...prev, targetUrls: uniqueUrls.join('\n') }));
+        }
+    };
 
     // Initialize/Update prompts when context/config changes
     useEffect(() => {
@@ -94,6 +109,15 @@ const GuidedModePopup = ({ isOpen, onClose, context, config }) => {
         header.push(`[DIFFICULTY: ${context.difficulty || 'Connect'}] ${diffMap[context.difficulty] || diffMap['Connect']}`);
         if (context.keywordsReport) header.push(`[FOCUS KEYWORDS]: ${context.keywordsReport}`);
         sections.push(header.join('\n'));
+
+        // SOURCE CONTEXT (From Search Results)
+        if (context.targetUrls) {
+             const sourceSec = [];
+             sourceSec.push(`### SOURCE CONTEXT`);
+             sourceSec.push(`Please use the following sources for your analysis:`);
+             sourceSec.push(context.targetUrls);
+             sections.push(sourceSec.join('\n'));
+        }
 
         const csvTask = [];
         csvTask.push(`### PART 1: DATA EXPORT (CSV FORMAT)`);
@@ -177,6 +201,23 @@ const GuidedModePopup = ({ isOpen, onClose, context, config }) => {
                                 className="w-full h-32 p-4 bg-white border-2 border-violet-100 rounded-xl text-sm font-mono text-zinc-700 resize-none focus:outline-none focus:border-violet-500 shadow-sm"
                             />
                         </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center pl-1">
+                            <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                                Step 1.5: Paste Search Results
+                            </label>
+                             <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+                                Auto-extracts URLs
+                            </div>
+                        </div>
+                        <textarea
+                            value={pastedResults}
+                            onChange={handlePasteResults}
+                            placeholder="Paste Google Search results here (Ctrl+V)..."
+                            className="w-full h-24 p-4 bg-white border-2 border-violet-100 rounded-xl text-sm font-mono text-zinc-700 resize-none focus:outline-none focus:border-violet-500 shadow-sm placeholder:text-zinc-300"
+                        />
                     </div>
 
                     <div className="space-y-3">
@@ -574,12 +615,12 @@ const AutoMode = () => {
         if (isOnline) loadConfig();
     }, [isOnline]);
 
-    useEffect(() => {
-        // If offline, default to Search Web (Fetchers) as Crawlers are server-side
-        if (isOffline && !context.searchWeb) {
-            setContext(prev => ({ ...prev, searchWeb: true, intelligenceSource: 'GOOGLE' }));
-        }
-    }, [isOffline]);
+    // useEffect(() => {
+    //     // If offline, default to Search Web (Fetchers) as Crawlers are server-side
+    //     if (isOffline && !context.searchWeb) {
+    //         setContext(prev => ({ ...prev, searchWeb: true, intelligenceSource: 'GOOGLE' }));
+    //     }
+    // }, [isOffline]);
 
     useEffect(() => {
         const savedContext = localStorage.getItem('dashboard_context');
@@ -676,14 +717,14 @@ const AutoMode = () => {
     };
 
     const handleLaunch = async () => {
-        if (!validateInput()) {
-            setLogs(prev => [`[VALIDATION_ERROR] Check input fields`, ...prev]);
-            return;
-        }
-
         // Offline / Static Mode Intercept
         if (isOffline || config.notebooklmGuided) {
             setShowGuidedPopup(true);
+            return;
+        }
+
+        if (!validateInput()) {
+            setLogs(prev => [`[VALIDATION_ERROR] Check input fields`, ...prev]);
             return;
         }
 
@@ -734,6 +775,7 @@ const AutoMode = () => {
                 isOpen={showGuidedPopup}
                 onClose={() => setShowGuidedPopup(false)}
                 context={context}
+                onUpdateContext={setContext}
                 config={config}
             />
 

@@ -184,6 +184,15 @@ export function generateReportBasis(selectedPrompts, studyGuideOptions, handoutO
 export function generateSourcePrompts(selectedPrompts, dashboardSettings = {}) {
     // FALLBACK: Natural Language Research Directive (Web Search Simulation)
     if (!selectedPrompts || selectedPrompts.length === 0) {
+        // If we have manual Target URLs, treat them as the source
+        if (dashboardSettings.targetUrls) {
+             let urlPrompt = `## TARGET SOURCE CONTEXT\n\n`;
+             urlPrompt += `**Instruction:** The user has provided specific URLs to act as the knowledge base for this task.\n`;
+             urlPrompt += `**Target URLs:**\n${dashboardSettings.targetUrls}\n\n`;
+             urlPrompt += `**Directive:** Visit and analyze the content from the above URLs. Use them as the primary source of truth for the following report.\n`;
+             return urlPrompt;
+        }
+
         if (dashboardSettings.topic || dashboardSettings.subject) {
              const persona = determinePersona(dashboardSettings.grade, dashboardSettings.subject);
              const subtopics = dashboardSettings.subtopics ? `Specifically investigate: ${dashboardSettings.subtopics}.` : '';
