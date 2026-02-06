@@ -74,18 +74,65 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
     const [outputPromptText, setOutputPromptText] = useState('');
     const [inputPromptText, setInputPromptText] = useState('');
     const [pastedResults, setPastedResults] = useState('');
+    const [smartParseStatus, setSmartParseStatus] = useState('');
 
     const handlePasteResults = (e) => {
         const text = e.target.value;
         setPastedResults(text);
+        setSmartParseStatus('');
 
-        // Extract URLs
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        const matches = text.match(urlRegex);
-        if (matches && matches.length > 0 && onUpdateContext) {
-             const uniqueUrls = [...new Set(matches)];
-             // Update targetUrls in context (replacing existing to avoid duplicates/confusion)
-             onUpdateContext(prev => ({ ...prev, targetUrls: uniqueUrls.join('\n') }));
+        let extractedLinks = [];
+
+        // 1. Try DOM Parser for HTML content
+        if (text.trim().startsWith('<')) {
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+                const anchors = Array.from(doc.querySelectorAll('a'));
+
+                anchors.forEach(a => {
+                    const href = a.getAttribute('href');
+                    if (!href) return;
+
+                    // Clean Google tracking links
+                    if (href.startsWith('/url?q=')) {
+                        const match = href.match(/[?&]q=([^&]+)/);
+                        if (match) extractedLinks.push(decodeURIComponent(match[1]));
+                    } else if (href.startsWith('http')) {
+                        extractedLinks.push(href);
+                    }
+                });
+            } catch (err) {
+                console.error("Smart Parse Error:", err);
+            }
+        }
+
+        // 2. Fallback to Regex if DOM extraction yield nothing (or plain text paste)
+        if (extractedLinks.length === 0) {
+            const urlRegex = /(https?:\/\/[^\s"']+)/g;
+            const matches = text.match(urlRegex) || [];
+            extractedLinks = matches;
+        }
+
+        // 3. Filter Noise (Search Engines, Ads, Social Media)
+        const blockedDomains = [
+            'google.com', 'www.google.com', 'duckduckgo.com', 'bing.com', 'yahoo.com',
+            'facebook.com', 'twitter.com', 'instagram.com', 'doubleclick.net', 'googleadservices.com',
+            'youtube.com', 'w3.org', 'schema.org'
+        ];
+
+        const cleanLinks = [...new Set(extractedLinks)].filter(url => {
+            try {
+                const domain = new URL(url).hostname;
+                return !blockedDomains.some(b => domain.includes(b));
+            } catch { return false; }
+        });
+
+        if (cleanLinks.length > 0 && onUpdateContext) {
+             onUpdateContext(prev => ({ ...prev, targetUrls: cleanLinks.join('\n') }));
+             setSmartParseStatus(`✓ Extracted ${cleanLinks.length} clean URLs`);
+        } else if (text.length > 10) {
+             setSmartParseStatus('⚠ No valid organic URLs found');
         }
     };
 
@@ -226,10 +273,10 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
                     <div className="space-y-3">
                         <div className="flex justify-between items-center pl-1">
                             <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                                Step 1.5: Paste Search Results
+                                Step 1.5: Paste Search Results (HTML/Text)
                             </label>
-                             <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
-                                Auto-extracts URLs
+                             <div className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${smartParseStatus.includes('✓') ? 'text-emerald-500' : 'text-zinc-400'}`}>
+                                {smartParseStatus || 'Auto-extracts & Cleans URLs'}
                             </div>
                         </div>
                         <textarea
