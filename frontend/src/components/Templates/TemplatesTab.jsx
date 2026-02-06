@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileSpreadsheet, Zap, AlertCircle, Copy, CheckCircle, Info } from 'lucide-react';
 import TemplateSourcesPanel, { TEMPLATE_SOURCES } from './TemplateSourcesPanel';
 import FileUploadPanel from './FileUploadPanel';
+import ExternalSourcePanel from './ExternalSourcePanel';
 import PromptOutputBox from './PromptOutputBox';
 import StudyGuideOptions from './StudyGuideOptions';
 import HandoutOptions from './HandoutOptions';
@@ -313,6 +314,34 @@ const TemplatesTab = () => {
         // We'll leave it in selectedPrompts, it won't be found in generatedPrompts so it filters out on report gen.
     };
 
+    // Handle external source addition
+    const handleExternalSourceAdd = (data) => {
+        logGate('TemplatesTab', 'ADD:EXTERNAL', { url: data.filename });
+
+        // Use the manually refined structure (headers only) for the prompt
+        const prompt = `# Source Context: ${data.filename} (External)\n` +
+                       `**Source Origin:** External URL\n` +
+                       `**Schema Definition (Editable):**\n${data.structure}\n\n` +
+                       `**Instruction:** Analyze content based on the above schema.`;
+
+        setGeneratedPrompts(prev => {
+            const filtered = prev.filter(p => p.id !== data.id);
+            return [...filtered, {
+                id: data.id,
+                filename: `External: ${data.filename.split('/').pop() || 'URL'}`,
+                prompt: prompt,
+                source: 'External',
+                selected: true
+            }];
+        });
+
+        setSelectedPrompts(prev => {
+             const updated = new Set(prev);
+             updated.add(data.id);
+             return updated;
+        });
+    };
+
     // Handle prompt selection
     const handlePromptSelection = (id, checked) => {
         setSelectedPrompts(prev => {
@@ -432,17 +461,22 @@ const TemplatesTab = () => {
                 </div>
             </div>
 
-            {/* Top Row: Template Sources + File Upload */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <TemplateSourcesPanel
-                    selectedSources={selectedSources}
-                    onSelectionChange={handleSourceSelection}
-                />
-                <FileUploadPanel
-                    uploadedFile={uploadedFile}
-                    onFileUpload={handleFileUpload}
-                    onFileRemove={handleFileRemove}
-                />
+            {/* Top Row: Template Sources + File Upload + External */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 h-full">
+                    <TemplateSourcesPanel
+                        selectedSources={selectedSources}
+                        onSelectionChange={handleSourceSelection}
+                    />
+                </div>
+                <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 h-fit">
+                    <FileUploadPanel
+                        uploadedFile={uploadedFile}
+                        onFileUpload={handleFileUpload}
+                        onFileRemove={handleFileRemove}
+                    />
+                    <ExternalSourcePanel onAddPrompt={handleExternalSourceAdd} />
+                </div>
             </div>
 
             {/* Generated Prompts Grid */}
