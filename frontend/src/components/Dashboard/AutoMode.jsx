@@ -186,11 +186,20 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
                             </label>
                             {context.searchWeb && (
                                 <button
-                                    onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(inputPromptText)}`, '_blank')}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold transition-all"
+                                    onClick={() => {
+                                        const url = context.intelligenceSource === 'DDG'
+                                            ? `https://duckduckgo.com/?q=${encodeURIComponent(inputPromptText)}`
+                                            : `https://www.google.com/search?q=${encodeURIComponent(inputPromptText)}`;
+                                        window.open(url, '_blank');
+                                    }}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                        context.intelligenceSource === 'DDG'
+                                        ? 'bg-orange-50 text-orange-600 hover:bg-orange-100'
+                                        : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                    }`}
                                 >
-                                    <Search className="w-3 h-3" />
-                                    Open Google Search
+                                    {context.intelligenceSource === 'DDG' ? <Search className="w-3 h-3" /> : <Globe className="w-3 h-3" />}
+                                    {context.intelligenceSource === 'DDG' ? 'Open DuckDuckGo' : 'Open Google Search'}
                                 </button>
                             )}
                         </div>
@@ -573,6 +582,7 @@ const AutoMode = () => {
     const [results, setResults] = useState(null);
     const [showGuidedPopup, setShowGuidedPopup] = useState(false);
     const [logs, setLogs] = useState([]);
+    const [isFetching, setIsFetching] = useState(false);
 
     const [outputView, setOutputView] = useState('SYNTHESIS');
 
@@ -707,6 +717,48 @@ const AutoMode = () => {
         if (status === 'RUNNING') interval = setInterval(checkStatus, 2000);
         return () => clearInterval(interval);
     }, [status]);
+
+    const handleFetchUrls = async () => {
+        if (!context.grade || !context.subject || !context.topic) {
+             setLogs(prev => [`[VALIDATION_ERROR] Grade, Subject, and Topic are required to fetch URLs`, ...prev]);
+             return;
+        }
+
+        setIsFetching(true);
+        setLogs(prev => [`[SYSTEM] Fetching URLs via Bridge...`, ...prev]);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/discovery/fetch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    grade: context.grade,
+                    subject: context.subject,
+                    topic: context.topic,
+                    subtopics: context.subtopics,
+                    maxResults: 5,
+                    trustedDomains: context.useTrustedSites ? config.trustedDomains : null
+                })
+            });
+            const data = await response.json();
+
+            if (data.success && data.results) {
+                const urls = data.results.map(r => r.url).join('\n');
+                setContext(prev => ({
+                    ...prev,
+                    targetUrls: urls,
+                    searchWeb: false // Switch to Direct Mode
+                }));
+                setLogs(prev => [`[SUCCESS] Fetched ${data.results.length} URLs. Switched to Direct Mode.`, ...prev]);
+            } else {
+                throw new Error("No results returned");
+            }
+        } catch (e) {
+            setLogs(prev => [`[ERROR] Fetch failed: ${e.message}`, ...prev]);
+        } finally {
+            setIsFetching(false);
+        }
+    };
 
     const handleOpenFolder = async (path) => {
         if (isOffline) {
@@ -925,6 +977,19 @@ const AutoMode = () => {
                                         onChange={(e) => setContext({ ...context, subtopics: e.target.value })}
                                         disabled={!context.searchWeb}
                                     />
+
+                                    {context.searchWeb && context.intelligenceSource === 'DDG' && (
+                                        <div className="flex justify-end animate-in fade-in slide-in-from-top-2">
+                                            <button
+                                                onClick={handleFetchUrls}
+                                                disabled={isFetching}
+                                                className="px-4 py-2 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-sm"
+                                            >
+                                                {isFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                                                Fetch URLs Programmatically
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

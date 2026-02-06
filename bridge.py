@@ -12,8 +12,18 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 from dotenv import set_key
 import pandas as pd
+from discovery.edu_search_pipeline import EduSearchPipeline
 
 app = FastAPI()
+
+class DiscoveryRequest(BaseModel):
+    grade: str
+    subject: str
+    topic: str
+    subtopics: Optional[str] = None
+    maxResults: Optional[int] = 10
+    region: Optional[str] = "us-en"
+    trustedDomains: Optional[str] = None
 
 class ConfigSaveRequest(BaseModel):
     maxTokens: int
@@ -247,6 +257,39 @@ async def save_admin(req: AdminSaveRequest):
         set_key(str(ENV_PATH), "GEMINI_API_KEY", req.gemini)
         return {"success": True}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/discovery/fetch")
+async def fetch_discovery_urls(req: DiscoveryRequest):
+    try:
+        pipeline = EduSearchPipeline()
+
+        # Parse extra trusted domains
+        extra_domains = None
+        if req.trustedDomains:
+            extra_domains = [d.strip() for d in req.trustedDomains.split(",") if d.strip()]
+
+        # Run search
+        # Note: pipeline.search expects subtopic as a single string (if any).
+        # We pass the raw subtopics string from UI, or maybe the first one?
+        # For now, let's just pass it as is.
+
+        results = pipeline.search(
+            grade=int(req.grade) if req.grade.isdigit() else 8,
+            subject=req.subject,
+            topic=req.topic,
+            subtopic=req.subtopics,
+            max_results=req.maxResults,
+            region=req.region,
+            extra_domains=extra_domains
+        )
+
+        return {
+            "success": True,
+            "results": [r.to_dict() for r in results]
+        }
+    except Exception as e:
+        print(f"Discovery Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/projects/list")
