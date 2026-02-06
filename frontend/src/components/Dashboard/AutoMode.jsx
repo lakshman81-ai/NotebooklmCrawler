@@ -672,13 +672,16 @@ const AutoMode = () => {
 
     useEffect(() => { localStorage.setItem('dashboard_context', JSON.stringify(context)); }, [context]);
 
+    // FIX: Avoid auto-resetting intelligence source when toggling Search Web if the current source is valid for that mode.
     useEffect(() => {
         if (context.searchWeb) {
-            if (context.intelligenceSource === 'AUTO' || context.intelligenceSource === 'NOTEBOOKLM') {
+            // Fetcher Mode: Must be GOOGLE or DDG
+            if (context.intelligenceSource !== 'GOOGLE' && context.intelligenceSource !== 'DDG') {
                 setContext(prev => ({ ...prev, intelligenceSource: 'GOOGLE' }));
             }
         } else {
-            if (context.intelligenceSource === 'GOOGLE' || context.intelligenceSource === 'DDG') {
+            // Crawler Mode: Must be AUTO or NOTEBOOKLM
+            if (context.intelligenceSource !== 'AUTO' && context.intelligenceSource !== 'NOTEBOOKLM') {
                 setContext(prev => ({ ...prev, intelligenceSource: 'AUTO' }));
             }
         }
@@ -752,13 +755,23 @@ const AutoMode = () => {
     const handleFetchUrls = async () => {
         if (!context.grade || !context.subject || !context.topic) {
              setLogs(prev => [`[VALIDATION_ERROR] Grade, Subject, and Topic are required to fetch URLs`, ...prev]);
+             alert("Please fill in Grade, Subject, and Topic first.");
              return;
         }
 
         setIsFetching(true);
-        setLogs(prev => [`[SYSTEM] Fetching URLs via Bridge...`, ...prev]);
+        // setLogs(prev => [`[SYSTEM] Fetching URLs via Bridge...`, ...prev]);
 
         try {
+            console.log("Fetching URLs with:", {
+                grade: context.grade,
+                subject: context.subject,
+                topic: context.topic,
+                subtopics: context.subtopics,
+                maxResults: 5,
+                trustedDomains: context.useTrustedSites ? config.trustedDomains : null
+            });
+
             const response = await fetch(`${API_BASE_URL}/api/discovery/fetch`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -773,19 +786,27 @@ const AutoMode = () => {
             });
             const data = await response.json();
 
+            console.log("Fetch response:", data);
+
             if (data.success && data.results) {
                 const urls = data.results.map(r => r.url).join('\n');
                 setContext(prev => ({
                     ...prev,
                     targetUrls: urls,
-                    searchWeb: false // Switch to Direct Mode
+                    // searchWeb: false // User wants to keep "Target URLs" visible, not necessarily switch mode.
+                    // But if we have URLs, we typically use "Direct" mode (searchWeb=false).
+                    // The user said: 'keep "Target URLS" text box in "intelligence source" and always visible.'
+                    // So we will just populate it.
                 }));
-                setLogs(prev => [`[SUCCESS] Fetched ${data.results.length} URLs. Switched to Direct Mode.`, ...prev]);
+                // setLogs(prev => [`[SUCCESS] Fetched ${data.results.length} URLs.`, ...prev]);
+                alert(`Fetched ${data.results.length} URLs successfully!`);
             } else {
-                throw new Error("No results returned");
+                throw new Error("No results returned or success=false");
             }
         } catch (e) {
-            setLogs(prev => [`[ERROR] Fetch failed: ${e.message}`, ...prev]);
+            console.error("Fetch error:", e);
+            // setLogs(prev => [`[ERROR] Fetch failed: ${e.message}`, ...prev]);
+            alert(`Fetch failed: ${e.message}`);
         } finally {
             setIsFetching(false);
         }
@@ -945,20 +966,20 @@ const AutoMode = () => {
                                     <h2 className="text-sm font-black text-zinc-700 uppercase tracking-widest">Research Context</h2>
                                 </div>
 
-                                {!context.searchWeb && (
-                                    <div className="animate-in slide-in-from-top-2">
-                                        <TextAreaField
-                                            label="Target URLs"
-                                            placeholder="Paste URLs here..."
-                                            value={context.targetUrls}
-                                            onChange={(e) => setContext({ ...context, targetUrls: e.target.value })}
-                                            error={errors.targetUrls}
-                                            rows={2}
-                                        />
-                                    </div>
-                                )}
+                                {/* Always Visible Target URLs */}
+                                <div className="animate-in slide-in-from-top-2">
+                                    <TextAreaField
+                                        label="Target URLs"
+                                        placeholder="Paste URLs here..."
+                                        value={context.targetUrls}
+                                        onChange={(e) => setContext({ ...context, targetUrls: e.target.value })}
+                                        error={errors.targetUrls}
+                                        rows={2}
+                                        disabled={false} // Always editable
+                                    />
+                                </div>
 
-                                <div className={`space-y-6 transition-all duration-300 ${!context.searchWeb ? 'opacity-50' : ''}`}>
+                                <div className={`space-y-6 transition-all duration-300 ${!context.searchWeb && !context.targetUrls ? 'opacity-90' : ''}`}>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <div className="flex justify-between pl-1">
@@ -968,7 +989,6 @@ const AutoMode = () => {
                                             <select
                                                 value={context.grade}
                                                 onChange={(e) => setContext({ ...context, grade: e.target.value })}
-                                                disabled={!context.searchWeb}
                                                 className="w-full p-3 bg-white rounded-xl font-bold text-zinc-700 border border-zinc-200 outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-50 text-sm"
                                             >
                                                 <option value="">Select Grade...</option>
@@ -983,7 +1003,6 @@ const AutoMode = () => {
                                                 list="subjects-list"
                                                 value={context.subject}
                                                 onChange={(e) => setContext({ ...context, subject: e.target.value })}
-                                                disabled={!context.searchWeb}
                                                 placeholder="Subject..."
                                                 className="w-full p-3 bg-white rounded-xl font-bold text-zinc-700 border border-zinc-200 outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-50 text-sm"
                                             />
@@ -1000,7 +1019,7 @@ const AutoMode = () => {
                                         onChange={(e) => setContext({ ...context, topic: e.target.value })}
                                         required={context.searchWeb}
                                         error={errors.topic}
-                                        disabled={!context.searchWeb && !context.localFilePath && !context.targetUrls}
+                                        disabled={false} // Always enabled to allow search
                                     />
 
                                     <InputField
@@ -1008,7 +1027,7 @@ const AutoMode = () => {
                                         placeholder="Specific areas..."
                                         value={context.subtopics}
                                         onChange={(e) => setContext({ ...context, subtopics: e.target.value })}
-                                        disabled={!context.searchWeb}
+                                        disabled={false}
                                     />
                                 </div>
                             </div>
