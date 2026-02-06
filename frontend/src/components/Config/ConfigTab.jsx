@@ -3,7 +3,6 @@ import { Settings, Download, Upload, Save, Clock, Globe, Bot, Cpu, Server, Alert
 import { logInfo, logError, logWarn, logGate, setWorkflow, advanceWorkflow, endWorkflow } from '../../services/loggingService';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
 import { API_BASE_URL } from '../../services/apiConfig';
-import { APP_VERSION } from '../../version';
 
 // --- Local Storage Utilities ---
 const CONFIG_STORAGE_KEY = 'orchestration_cockpit_config';
@@ -96,8 +95,8 @@ const ConfigTab = () => {
     // Load config from localStorage and backend on mount
     useEffect(() => {
         const loadConfig = async () => {
-            // logGate('ConfigTab', 'LOAD:ENTRY', { timestamp: Date.now() }); // Reduced noise
-            // logInfo('ConfigTab', 'loadConfig', 'Loading configuration...'); // Reduced noise
+            logGate('ConfigTab', 'LOAD:ENTRY', { timestamp: Date.now() });
+            logInfo('ConfigTab', 'loadConfig', 'Loading configuration...');
             // Try local storage first (fastest)
             const localConfig = loadFromLocalStorage(CONFIG_STORAGE_KEY);
 
@@ -154,7 +153,7 @@ const ConfigTab = () => {
             }
 
             setLoaded(true);
-            // logGate('ConfigTab', 'LOAD:EXIT', { loaded }); // Reduced noise
+            logGate('ConfigTab', 'LOAD:EXIT', { loaded });
         };
         loadConfig();
     }, [isOnline]);
@@ -563,10 +562,6 @@ const ConfigTab = () => {
                 >
                     <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Configuration'}
                 </button>
-            </div>
-
-            <div className="flex justify-end pr-2">
-                <p className="text-[10px] text-slate-300 font-mono select-none">{APP_VERSION}</p>
             </div>
         </div>
     );

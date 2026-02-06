@@ -4,7 +4,8 @@ import ConfigTab from './components/Config/ConfigTab';
 import LogsTab from './components/Logs/LogsTab';
 import AdminTab from './components/Admin/AdminTab';
 import TemplatesTab from './components/Templates/TemplatesTab';
-import { LayoutDashboard, Settings, ShieldAlert, Activity, FileSpreadsheet, Terminal, Wifi, WifiOff } from 'lucide-react';
+import InstructionToJulesTab from './components/InstructionToJules/InstructionToJulesTab';
+import { LayoutDashboard, Settings, ShieldAlert, Activity, FileSpreadsheet, MessageSquare, Terminal, Wifi, WifiOff } from 'lucide-react';
 import { useBackendStatus } from './hooks/useBackendStatus';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
             case 'LOGS': return <LogsTab />;
             case 'ADMIN': return <AdminTab />;
             case 'TEMPLATES': return <TemplatesTab />;
+            case 'JULES': return <InstructionToJulesTab />;
             default: return <Dashboard />;
         }
     };
@@ -39,7 +41,8 @@ function App() {
 
                     <nav className="hidden md:flex items-center gap-2">
                         <TabLink id="DASHBOARD" icon={<LayoutDashboard className="w-4 h-4" />} label="Dashboard" active={activeTab === 'DASHBOARD'} onClick={setActiveTab} />
-                        <TabLink id="TEMPLATES" icon={<FileSpreadsheet className="w-4 h-4" />} label="Prompt Generator" active={activeTab === 'TEMPLATES'} onClick={setActiveTab} />
+                        <TabLink id="TEMPLATES" icon={<FileSpreadsheet className="w-4 h-4" />} label="Templates/Notebooklm O/P Prompt Generator" active={activeTab === 'TEMPLATES'} onClick={setActiveTab} />
+                        <TabLink id="JULES" icon={<MessageSquare className="w-4 h-4" />} label="Instruction to Jules" active={activeTab === 'JULES'} onClick={setActiveTab} />
                         <TabLink id="CONFIG" icon={<Settings className="w-4 h-4" />} label="Config" active={activeTab === 'CONFIG'} onClick={setActiveTab} />
                         <TabLink id="LOGS" icon={<Terminal className="w-4 h-4" />} label="System Logs" active={activeTab === 'LOGS'} onClick={setActiveTab} />
                         <TabLink id="ADMIN" icon={<ShieldAlert className="w-4 h-4" />} label="Admin" active={activeTab === 'ADMIN'} onClick={setActiveTab} />
