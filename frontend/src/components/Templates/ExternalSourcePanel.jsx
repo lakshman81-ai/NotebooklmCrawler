@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Globe, RefreshCw, Plus } from 'lucide-react';
 import { API_BASE_URL } from '../../services/apiConfig';
 
@@ -15,7 +15,9 @@ const ExternalSourcePanel = ({ onAddPrompt }) => {
             const response = await fetch(`${API_BASE_URL}/api/proxy/headers?url=${encodeURIComponent(url)}`);
             const data = await response.json();
             if (data.success) {
-                setPreview(data.structure);
+                // Generate header-only string
+                const headerString = data.headers ? data.headers.join(', ') : '';
+                setPreview(headerString);
                 setHeaders(data.headers);
             } else {
                  setPreview('Error: ' + (data.detail || 'Failed to fetch'));
@@ -55,6 +57,7 @@ const ExternalSourcePanel = ({ onAddPrompt }) => {
             </div>
 
             <div className="space-y-3 flex-shrink-0">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Input Source</label>
                 <input
                     type="text"
                     value={url}

@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, File, X, CheckCircle } from 'lucide-react';
 
 const FileUploadPanel = ({ uploadedFile, onFileUpload, onFileRemove }) => {
     const [dragActive, setDragActive] = useState(false);
+    const [preview, setPreview] = useState('');
+
+    useEffect(() => {
+        if (uploadedFile && uploadedFile.data && uploadedFile.data.columns) {
+            setPreview(uploadedFile.data.columns.join(', '));
+        } else {
+            setPreview('');
+        }
+    }, [uploadedFile]);
 
     const handleDrag = (e) => {
         e.preventDefault();
@@ -51,9 +60,9 @@ const FileUploadPanel = ({ uploadedFile, onFileUpload, onFileRemove }) => {
     };
 
     return (
-        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 space-y-5">
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 space-y-5 h-full flex flex-col">
             {/* Header */}
-            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3 pb-4 border-b border-slate-100 flex-shrink-0">
                 <div className="p-2 bg-emerald-50 rounded-xl">
                     <Upload className="w-5 h-5 text-emerald-600" />
                 </div>
@@ -70,7 +79,7 @@ const FileUploadPanel = ({ uploadedFile, onFileUpload, onFileRemove }) => {
                     onDragLeave={handleDrag}
                     onDragOver={handleDrag}
                     onDrop={handleDrop}
-                    className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all ${dragActive
+                    className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all flex-grow flex flex-col items-center justify-center ${dragActive
                         ? 'border-indigo-500 bg-indigo-50'
                         : 'border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50/50'
                         }`}
@@ -105,35 +114,49 @@ const FileUploadPanel = ({ uploadedFile, onFileUpload, onFileRemove }) => {
                     </div>
                 </div>
             ) : (
-                /* Uploaded File Display */
-                <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-5">
-                    <div className="flex items-start gap-4">
-                        <div className="p-3 bg-emerald-500 rounded-xl text-white shadow-lg">
-                            <File className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-slate-800 truncate">
-                                        {uploadedFile.name}
-                                    </p>
-                                    <p className="text-xs text-slate-600 mt-1">
-                                        {(uploadedFile.size / 1024).toFixed(2)} KB
-                                    </p>
+                /* Uploaded File Display + Preview */
+                <div className="flex flex-col h-full space-y-4">
+                    <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-5 flex-shrink-0">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 bg-emerald-500 rounded-xl text-white shadow-lg">
+                                <File className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-slate-800 truncate">
+                                            {uploadedFile.name}
+                                        </p>
+                                        <p className="text-xs text-slate-600 mt-1">
+                                            {(uploadedFile.size / 1024).toFixed(2)} KB
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={onFileRemove}
+                                        className="p-2 rounded-lg hover:bg-red-100 text-slate-400 hover:text-red-600 transition-all"
+                                        title="Remove file"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={onFileRemove}
-                                    className="p-2 rounded-lg hover:bg-red-100 text-slate-400 hover:text-red-600 transition-all"
-                                    title="Remove file"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </div>
-                            <div className="flex items-center gap-2 mt-3">
-                                <CheckCircle className="w-4 h-4 text-emerald-600" />
-                                <span className="text-xs font-bold text-emerald-700">File uploaded successfully</span>
+                                <div className="flex items-center gap-2 mt-3">
+                                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                                    <span className="text-xs font-bold text-emerald-700">File uploaded successfully</span>
+                                </div>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Unified Preview for Uploaded File */}
+                    <div className="flex-grow flex flex-col min-h-0 space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Structure Preview (Editable)</label>
+                        <textarea
+                            value={preview}
+                            onChange={(e) => setPreview(e.target.value)}
+                            className="w-full flex-grow p-3 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-mono text-slate-600 focus:outline-none focus:border-emerald-500 resize-none min-h-[100px]"
+                            placeholder="Column headers will appear here..."
+                        />
+                        <p className="text-[10px] text-slate-400 italic">These headers will be used to guide prompt generation.</p>
                     </div>
                 </div>
             )}

@@ -318,10 +318,11 @@ const TemplatesTab = () => {
     const handleExternalSourceAdd = (data) => {
         logGate('TemplatesTab', 'ADD:EXTERNAL', { url: data.filename });
 
+        // Use the manually refined structure (headers only) for the prompt
         const prompt = `# Source Context: ${data.filename} (External)\n` +
                        `**Source Origin:** External URL\n` +
-                       `**Structure Preview:**\n${data.structure}\n\n` +
-                       `**Instruction:** Use the above structure and sample data to understand the content context.`;
+                       `**Schema Definition (Editable):**\n${data.structure}\n\n` +
+                       `**Instruction:** Analyze content based on the above schema.`;
 
         setGeneratedPrompts(prev => {
             const filtered = prev.filter(p => p.id !== data.id);
