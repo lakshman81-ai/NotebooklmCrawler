@@ -9,3 +9,4 @@
   ➜  Network: use --host to expose
 6:17:46 PM [vite] hmr update /src/components/Templates/TemplateSourcesPanel.jsx, /src/index.css
 6:36:45 PM [vite] hmr update /src/components/Templates/TemplatesTab.jsx, /src/index.css
+7:22:20 PM [vite] hmr update /src/components/Dashboard/AutoMode.jsx, /src/index.css

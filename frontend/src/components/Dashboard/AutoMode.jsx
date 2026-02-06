@@ -73,11 +73,11 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
     const [copiedOutput, setCopiedOutput] = useState(false);
     const [outputPromptText, setOutputPromptText] = useState('');
     const [inputPromptText, setInputPromptText] = useState('');
-    const [pastedResults, setPastedResults] = useState('');
+    const [manualSearchResults, setManualSearchResults] = useState('');
 
     const handlePasteResults = (e) => {
         const text = e.target.value;
-        setPastedResults(text);
+        setManualSearchResults(text);
 
         // Extract URLs
         const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -233,7 +233,7 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
                             </div>
                         </div>
                         <textarea
-                            value={pastedResults}
+                            value={manualSearchResults}
                             onChange={handlePasteResults}
                             placeholder="Paste Google Search results here (Ctrl+V)..."
                             className="w-full h-24 p-4 bg-white border-2 border-violet-100 rounded-xl text-sm font-mono text-zinc-700 resize-none focus:outline-none focus:border-violet-500 shadow-sm placeholder:text-zinc-300"
