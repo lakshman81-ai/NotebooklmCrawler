@@ -203,6 +203,35 @@ const TemplatesTab = () => {
         setSelectedSourceData(newData);
     };
 
+    // Handle structure update (editable headers from TemplateSourcesPanel)
+    const handleStructureUpdate = (id, newStructureString) => {
+        logGate('TemplatesTab', 'UPDATE:STRUCTURE', { id, newStructureString });
+
+        const currentData = selectedSourceData.get(id);
+        if (!currentData || !currentData.data) return;
+
+        // Parse headers
+        const newHeaders = newStructureString.split(',').map(h => h.trim()).filter(h => h);
+
+        // Update local data state
+        const updatedDataPayload = {
+            ...currentData.data,
+            columns: newHeaders
+        };
+
+        const updatedFileInfo = {
+            ...currentData,
+            data: updatedDataPayload
+        };
+
+        const newData = new Map(selectedSourceData);
+        newData.set(id, updatedFileInfo);
+        setSelectedSourceData(newData);
+
+        // Regenerate prompt with new headers
+        generatePromptForSource(id, updatedFileInfo, updatedDataPayload);
+    };
+
     // Load template file (Excel/CSV from backend)
     const loadTemplateFile = async (path) => {
         try {
@@ -476,7 +505,9 @@ const TemplatesTab = () => {
                 <div className="lg:col-span-1 h-full">
                     <TemplateSourcesPanel
                         selectedSources={selectedSources}
+                        selectedSourceData={selectedSourceData}
                         onSelectionChange={handleSourceSelection}
+                        onUpdateStructure={handleStructureUpdate}
                     />
                 </div>
                 <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 h-fit">

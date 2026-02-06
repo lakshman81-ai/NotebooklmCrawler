@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FolderOpen, ChevronDown, ChevronRight, File } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FolderOpen, ChevronDown, ChevronRight, File, RefreshCw } from 'lucide-react';
 
 /**
  * Template file structure (Nested)
@@ -34,7 +34,7 @@ const TEMPLATE_SOURCES = {
 /**
  * Recursive Tree Component
  */
-const FileTree = ({ data, parentPath = '', level = 0, selectedSources, onSelectionChange, expanded, toggleExpand }) => {
+const FileTree = ({ data, parentPath = '', level = 0, selectedSources, onSelectionChange, expanded, toggleExpand, previewId, onFileClick }) => {
     // If array, it's a list of files (Leaf Nodes)
     if (Array.isArray(data)) {
         return (
@@ -45,6 +45,8 @@ const FileTree = ({ data, parentPath = '', level = 0, selectedSources, onSelecti
                         file={file}
                         selected={selectedSources.has(file.id)}
                         onSelect={onSelectionChange}
+                        isPreview={previewId === file.id}
+                        onPreviewClick={() => onFileClick(file.id)}
                     />
                 ))}
             </div>
@@ -107,6 +109,8 @@ const FileTree = ({ data, parentPath = '', level = 0, selectedSources, onSelecti
                                 onSelectionChange={onSelectionChange}
                                 expanded={expanded}
                                 toggleExpand={toggleExpand}
+                                previewId={previewId}
+                                onFileClick={onFileClick}
                             />
                         )}
                     </div>
@@ -116,9 +120,25 @@ const FileTree = ({ data, parentPath = '', level = 0, selectedSources, onSelecti
     );
 };
 
-const TemplateSourcesPanel = ({ selectedSources, onSelectionChange }) => {
+const TemplateSourcesPanel = ({ selectedSources, selectedSourceData, onSelectionChange, onUpdateStructure }) => {
     // Initial State: Expand top-level folders
     const [expandedSections, setExpandedSections] = useState(new Set(['Kani', 'Harshitha']));
+    const [previewId, setPreviewId] = useState(null);
+    const [previewText, setPreviewText] = useState('');
+
+    // Update preview text when file selection/data changes
+    useEffect(() => {
+        if (previewId && selectedSourceData) {
+            const data = selectedSourceData.get(previewId);
+            if (data && data.data && data.data.columns) {
+                setPreviewText(data.data.columns.join(', '));
+            } else {
+                setPreviewText('');
+            }
+        } else {
+            setPreviewText('');
+        }
+    }, [previewId, selectedSourceData]);
 
     const toggleExpand = (path) => {
         setExpandedSections(prev => {
@@ -130,6 +150,12 @@ const TemplateSourcesPanel = ({ selectedSources, onSelectionChange }) => {
             }
             return next;
         });
+    };
+
+    const handleUpdate = () => {
+        if (previewId && onUpdateStructure) {
+            onUpdateStructure(previewId, previewText);
+        }
     };
 
     return (
@@ -148,15 +174,43 @@ const TemplateSourcesPanel = ({ selectedSources, onSelectionChange }) => {
             </div>
 
             {/* File Tree - Scrollable Area */}
-            <div className="space-y-2 overflow-y-auto custom-scrollbar pr-2 flex-grow min-h-[300px]">
+            <div className="space-y-2 overflow-y-auto custom-scrollbar pr-2 flex-grow min-h-[200px]">
                 <FileTree
                     data={TEMPLATE_SOURCES}
                     selectedSources={selectedSources}
                     onSelectionChange={onSelectionChange}
                     expanded={expandedSections}
                     toggleExpand={toggleExpand}
+                    previewId={previewId}
+                    onFileClick={setPreviewId}
                 />
             </div>
+
+            {/* Structure Preview (Editable) - Only shows when a file is active and selected */}
+            {previewId && selectedSources.has(previewId) && (
+                 <div className="pt-4 border-t border-slate-100 flex-shrink-0 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                             <label className="text-[10px] font-bold text-slate-400 uppercase">Structure Preview (Editable)</label>
+                             <button
+                                onClick={handleUpdate}
+                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded transition-colors"
+                             >
+                                <RefreshCw className="w-3 h-3" /> Update
+                             </button>
+                        </div>
+                        <textarea
+                            value={previewText}
+                            onChange={(e) => setPreviewText(e.target.value)}
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-mono text-slate-600 focus:outline-none focus:border-indigo-500 resize-none h-[100px]"
+                            placeholder="Header1, Header2, Header3..."
+                        />
+                         <p className="text-[9px] text-slate-400 italic text-center">
+                            Click 'Update' to refresh the generated prompt
+                        </p>
+                    </div>
+                 </div>
+            )}
 
             {/* Footer Stats */}
             <div className="pt-4 border-t border-slate-100 flex-shrink-0">
@@ -171,23 +225,30 @@ const TemplateSourcesPanel = ({ selectedSources, onSelectionChange }) => {
 /**
  * Individual file checkbox component
  */
-const FileCheckbox = ({ file, selected, onSelect }) => {
+const FileCheckbox = ({ file, selected, onSelect, isPreview, onPreviewClick }) => {
     return (
-        <label className={`flex items-center gap-2 p-2 pl-4 rounded-lg cursor-pointer transition-all ${selected
-            ? 'bg-indigo-50 border border-indigo-200'
-            : 'hover:bg-slate-50 border border-transparent'
-            }`}>
+        <div
+            onClick={onPreviewClick}
+            className={`flex items-center gap-2 p-2 pl-4 rounded-lg cursor-pointer transition-all ${
+                isPreview ? 'bg-indigo-100 border border-indigo-200' :
+                selected ? 'bg-indigo-50 border border-indigo-200' :
+                'hover:bg-slate-50 border border-transparent'
+            }`}
+        >
             <input
                 type="checkbox"
                 checked={selected}
-                onChange={(e) => onSelect(file.id, e.target.checked, file)}
+                onChange={(e) => {
+                    e.stopPropagation(); // Prevent preview click when just checking
+                    onSelect(file.id, e.target.checked, file);
+                }}
                 className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
             />
             <File className={`w-3.5 h-3.5 ${selected ? 'text-indigo-600' : 'text-slate-400'}`} />
             <span className={`text-xs font-medium ${selected ? 'text-indigo-700 font-bold' : 'text-slate-600'}`}>
                 {file.filename}
             </span>
-        </label>
+        </div>
     );
 };
 
