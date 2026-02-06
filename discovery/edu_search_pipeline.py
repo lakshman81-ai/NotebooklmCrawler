@@ -449,21 +449,48 @@ class EduSearchPipeline:
     ) -> list[SearchResult]:
         """
         Full pipeline: resolve → build → fetch → filter.
-
-        This is the main entry point. For fine-grained control,
-        call the individual step methods directly.
+        Includes automatic fallback if strict domain filtering yields no results.
         """
         logger.info(
             f"Starting search: Grade {grade} {subject} > {topic}"
             + (f" > {subtopic}" if subtopic else "")
         )
 
+        # 1. Try Strict/Trusted Search
         domains = self.resolve_domains(grade, subject, extra_domains)
         query = self.build_query(
             grade, subject, topic, subtopic, content_types, domains
         )
-        raw = self.fetch(query, region, safesearch, max_results)
-        results = self.filter_results(raw, domains, strict_domain_filter)
+
+        try:
+            raw = self.fetch(query, region, safesearch, max_results)
+            results = self.filter_results(raw, domains, strict_domain_filter)
+        except Exception as e:
+            logger.warning(f"Primary search failed: {e}")
+            results = []
+
+        # 2. Fallback: Relaxed Search (No site: filters) if no results
+        if not results:
+            logger.info("No results from strict search. Attempting fallback (no site filters)...")
+
+            # Rebuild query WITHOUT domains
+            fallback_query = self.build_query(
+                grade, subject, topic, subtopic, content_types, domains=None
+            )
+
+            try:
+                raw_fallback = self.fetch(fallback_query, region, safesearch, max_results)
+                # Filter is still applied for ranking, but we might want to be looser
+                # If strict_domain_filter was True, we probably shouldn't return untrusted results,
+                # BUT if it's False (default), we just want *something*.
+                results = self.filter_results(raw_fallback, domains, strict=strict_domain_filter)
+
+                if results:
+                    logger.info(f"Fallback successful: {len(results)} results found.")
+                else:
+                    logger.warning("Fallback search also returned no results.")
+            except Exception as e:
+                logger.error(f"Fallback search failed: {e}")
 
         logger.info(
             f"Search complete: {len(results)} results for "
