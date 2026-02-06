@@ -3,9 +3,10 @@
 > vite
 
 
-  VITE v5.4.21  ready in 346 ms
+  VITE v5.4.21  ready in 342 ms
 
   ➜  Local:   http://localhost:5173/
   ➜  Network: use --host to expose
 12:39:30 PM [vite] hmr update /src/components/Templates/TemplatesTab.jsx, /src/index.css
 12:40:35 PM [vite] hmr update /src/components/Templates/TemplateSourcesPanel.jsx, /src/index.css
+5:24:19 PM [vite] hmr update /src/components/Dashboard/AutoMode.jsx, /src/index.css

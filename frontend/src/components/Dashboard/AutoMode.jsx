@@ -178,66 +178,36 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
     const [copiedOutput, setCopiedOutput] = useState(false);
     const [outputPromptText, setOutputPromptText] = useState('');
     const [inputPromptText, setInputPromptText] = useState('');
-    const [pastedResults, setPastedResults] = useState('');
-    const [smartParseStatus, setSmartParseStatus] = useState('');
 
-    const handlePasteResults = (e) => {
-        const text = e.target.value;
-        setPastedResults(text);
-        setSmartParseStatus('');
+    const handleTargetUrlsPaste = (e) => {
+        e.preventDefault();
+        const clipboardData = e.clipboardData || window.clipboardData;
+        const pastedText = clipboardData.getData('Text');
 
-        let extractedLinks = [];
+        const cleanedUrls = cleanAndExtractUrls(pastedText, config.trustedDomains);
 
-        // 1. Try DOM Parser for HTML content
-        if (text.trim().startsWith('<')) {
-            try {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(text, 'text/html');
-                const anchors = Array.from(doc.querySelectorAll('a'));
-
-                anchors.forEach(a => {
-                    const href = a.getAttribute('href');
-                    if (!href) return;
-
-                    // Clean Google tracking links
-                    if (href.startsWith('/url?q=')) {
-                        const match = href.match(/[?&]q=([^&]+)/);
-                        if (match) extractedLinks.push(decodeURIComponent(match[1]));
-                    } else if (href.startsWith('http')) {
-                        extractedLinks.push(href);
-                    }
-                });
-            } catch (err) {
-                console.error("Smart Parse Error:", err);
-            }
+        if (cleanedUrls.length > 0 && onUpdateContext) {
+             onUpdateContext(prev => ({
+                 ...prev,
+                 targetUrls: cleanedUrls.join('\n')
+             }));
+        } else if (onUpdateContext) {
+             // Fallback: If no URLs extracted, just paste the text (maybe user is manually editing)
+             // But if it looks like HTML, we probably shouldn't.
+             if (!pastedText.includes('<html')) {
+                 onUpdateContext(prev => ({
+                     ...prev,
+                     targetUrls: pastedText
+                 }));
+             } else {
+                 alert("No valid educational URLs found in pasted content.");
+             }
         }
+    };
 
-        // 2. Fallback to Regex if DOM extraction yield nothing (or plain text paste)
-        if (extractedLinks.length === 0) {
-            const urlRegex = /(https?:\/\/[^\s"']+)/g;
-            const matches = text.match(urlRegex) || [];
-            extractedLinks = matches;
-        }
-
-        // 3. Filter Noise (Search Engines, Ads, Social Media)
-        const blockedDomains = [
-            'google.com', 'www.google.com', 'duckduckgo.com', 'bing.com', 'yahoo.com',
-            'facebook.com', 'twitter.com', 'instagram.com', 'doubleclick.net', 'googleadservices.com',
-            'youtube.com', 'w3.org', 'schema.org'
-        ];
-
-        const cleanLinks = [...new Set(extractedLinks)].filter(url => {
-            try {
-                const domain = new URL(url).hostname;
-                return !blockedDomains.some(b => domain.includes(b));
-            } catch { return false; }
-        });
-
-        if (cleanLinks.length > 0 && onUpdateContext) {
-             onUpdateContext(prev => ({ ...prev, targetUrls: cleanLinks.join('\n') }));
-             setSmartParseStatus(`✓ Extracted ${cleanLinks.length} clean URLs`);
-        } else if (text.length > 10) {
-             setSmartParseStatus('⚠ No valid organic URLs found');
+    const handleTargetUrlsChange = (e) => {
+        if (onUpdateContext) {
+            onUpdateContext(prev => ({ ...prev, targetUrls: e.target.value }));
         }
     };
 
@@ -378,17 +348,27 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
                     <div className="space-y-3">
                         <div className="flex justify-between items-center pl-1">
                             <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                                Step 1.5: Paste Search Results (HTML/Text)
+                                Step 1.5: Target URLs (Auto-Extract)
                             </label>
-                             <div className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${smartParseStatus.includes('✓') ? 'text-emerald-500' : 'text-zinc-400'}`}>
-                                {smartParseStatus || 'Auto-extracts & Cleans URLs'}
+                             <div className="flex items-center gap-2">
+                                <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+                                    Smart Paste Active
+                                </div>
+                                <button
+                                    onClick={() => copyToClipboard(context.targetUrls)}
+                                    className="p-1.5 bg-zinc-100 hover:bg-violet-100 text-zinc-400 hover:text-violet-600 rounded-lg transition-colors"
+                                    title="Copy URLs"
+                                >
+                                    <Copy className="w-3 h-3" />
+                                </button>
                             </div>
                         </div>
                         <textarea
-                            value={pastedResults}
-                            onChange={handlePasteResults}
-                            placeholder="Paste Google Search results here (Ctrl+V)..."
-                            className="w-full h-24 p-4 bg-white border-2 border-violet-100 rounded-xl text-sm font-mono text-zinc-700 resize-none focus:outline-none focus:border-violet-500 shadow-sm placeholder:text-zinc-300"
+                            value={context.targetUrls}
+                            onChange={handleTargetUrlsChange}
+                            onPaste={handleTargetUrlsPaste}
+                            placeholder="Paste Bing/Google Search results source here (Ctrl+V)..."
+                            className="w-full h-48 p-4 bg-white border-2 border-violet-100 rounded-xl text-sm font-mono text-zinc-700 resize-y focus:outline-none focus:border-violet-500 shadow-sm placeholder:text-zinc-300"
                         />
                     </div>
 
