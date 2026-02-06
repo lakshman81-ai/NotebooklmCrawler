@@ -24,6 +24,7 @@ class DiscoveryRequest(BaseModel):
     maxResults: Optional[int] = 10
     region: Optional[str] = "us-en"
     trustedDomains: Optional[str] = None
+    blockedDomains: Optional[str] = None
 
 class ConfigSaveRequest(BaseModel):
     maxTokens: int
@@ -269,6 +270,11 @@ async def fetch_discovery_urls(req: DiscoveryRequest):
         if req.trustedDomains:
             extra_domains = [d.strip() for d in req.trustedDomains.split(",") if d.strip()]
 
+        # Parse blocked domains
+        blocked_domains = None
+        if req.blockedDomains:
+            blocked_domains = [d.strip() for d in req.blockedDomains.split(",") if d.strip()]
+
         # Run search
         # Note: pipeline.search expects subtopic as a single string (if any).
         # We pass the raw subtopics string from UI, or maybe the first one?
@@ -281,7 +287,8 @@ async def fetch_discovery_urls(req: DiscoveryRequest):
             subtopic=req.subtopics,
             max_results=req.maxResults,
             region=req.region,
-            extra_domains=extra_domains
+            extra_domains=extra_domains,
+            blocked_domains=blocked_domains
         )
 
         return {

@@ -441,16 +441,16 @@ const ConfigTab = () => {
 
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block pl-1">
-                            Blocked Domains (comma-separated)
+                            Target URL Exclusions
                         </label>
                         <textarea
                             className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-mono text-xs text-slate-700 min-h-[100px]"
                             value={config.blockedDomains}
                             onChange={(e) => setConfig({ ...config, blockedDomains: e.target.value })}
-                            placeholder="duckduckgo.com, youtube.com, ..."
+                            placeholder="schema.org, facebook.com, pinterest.com, ..."
                         />
                         <p className="text-[9px] text-slate-400 pl-1">
-                            Domains excluded from search results
+                            Comma-separated domains to automatically block in Smart Paste and Fetch
                         </p>
                     </div>
                 </div>

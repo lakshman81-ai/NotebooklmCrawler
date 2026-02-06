@@ -68,7 +68,7 @@ const buildEducationalQuery = (context, config) => {
 };
 
 // --- URL Cleaning Logic ---
-const cleanAndExtractUrls = (text, trustedDomainsStr) => {
+const cleanAndExtractUrls = (text, trustedDomainsStr, blockedDomainsStr) => {
     // 1. Initial Extraction
     const urlRegex = /https?:\/\/[^\s"<>]+/g;
     const rawMatches = text.match(urlRegex) || [];
@@ -84,6 +84,11 @@ const cleanAndExtractUrls = (text, trustedDomainsStr) => {
     const EXTENSION_BLOCK = ['.js', '.css', '.png', '.jpg', '.svg', '.gif', '.ico', '.woff', '.ttf'];
 
     let decodedUrls = [];
+
+    // Parse User Blocks
+    const userBlocks = blockedDomainsStr
+        ? blockedDomainsStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+        : [];
 
     // 3. Extraction & Decoding Loop
     rawMatches.forEach(rawUrl => {
@@ -119,6 +124,10 @@ const cleanAndExtractUrls = (text, trustedDomainsStr) => {
 
             // Block Lists (Bing & Google Specifics)
             if (BLOCK_DOMAINS.some(d => fullStr.includes(d))) return;
+
+            // User Configured Blocks
+            if (userBlocks.some(d => fullStr.includes(d))) return;
+
             if (hostname.includes('google') && !hostname.includes('googleapis')) return; // General Google Block
             if (fullStr.includes('googleadservices')) return;
             if (fullStr.includes('gstatic')) return;
@@ -183,7 +192,7 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
         const clipboardData = e.clipboardData || window.clipboardData;
         const pastedText = clipboardData.getData('Text');
 
-        const cleanedUrls = cleanAndExtractUrls(pastedText, config.trustedDomains);
+        const cleanedUrls = cleanAndExtractUrls(pastedText, config.trustedDomains, config.blockedDomains);
 
         if (cleanedUrls.length > 0 && onUpdateContext) {
              onUpdateContext(prev => ({
@@ -894,7 +903,7 @@ const AutoMode = () => {
         const clipboardData = e.clipboardData || window.clipboardData;
         const pastedText = clipboardData.getData('Text');
 
-        const cleanedUrls = cleanAndExtractUrls(pastedText, config.trustedDomains);
+        const cleanedUrls = cleanAndExtractUrls(pastedText, config.trustedDomains, config.blockedDomains);
 
         if (cleanedUrls.length > 0) {
             setContext(prev => ({
@@ -964,7 +973,8 @@ const AutoMode = () => {
                     topic: context.topic,
                     subtopics: context.subtopics,
                     maxResults: 5,
-                    trustedDomains: context.useTrustedSites ? config.trustedDomains : null
+                    trustedDomains: context.useTrustedSites ? config.trustedDomains : null,
+                    blockedDomains: config.blockedDomains
                 })
             });
             const data = await response.json();
