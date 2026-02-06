@@ -178,19 +178,36 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
     const [copiedOutput, setCopiedOutput] = useState(false);
     const [outputPromptText, setOutputPromptText] = useState('');
     const [inputPromptText, setInputPromptText] = useState('');
-    const [pastedResults, setPastedResults] = useState('');
 
-    const handlePasteResults = (e) => {
-        const text = e.target.value;
-        setPastedResults(text);
+    const handleTargetUrlsPaste = (e) => {
+        e.preventDefault();
+        const clipboardData = e.clipboardData || window.clipboardData;
+        const pastedText = clipboardData.getData('Text');
 
-        // Extract URLs
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        const matches = text.match(urlRegex);
-        if (matches && matches.length > 0 && onUpdateContext) {
-             const uniqueUrls = [...new Set(matches)];
-             // Update targetUrls in context (replacing existing to avoid duplicates/confusion)
-             onUpdateContext(prev => ({ ...prev, targetUrls: uniqueUrls.join('\n') }));
+        const cleanedUrls = cleanAndExtractUrls(pastedText, config.trustedDomains);
+
+        if (cleanedUrls.length > 0 && onUpdateContext) {
+             onUpdateContext(prev => ({
+                 ...prev,
+                 targetUrls: cleanedUrls.join('\n')
+             }));
+        } else if (onUpdateContext) {
+             // Fallback: If no URLs extracted, just paste the text (maybe user is manually editing)
+             // But if it looks like HTML, we probably shouldn't.
+             if (!pastedText.includes('<html')) {
+                 onUpdateContext(prev => ({
+                     ...prev,
+                     targetUrls: pastedText
+                 }));
+             } else {
+                 alert("No valid educational URLs found in pasted content.");
+             }
+        }
+    };
+
+    const handleTargetUrlsChange = (e) => {
+        if (onUpdateContext) {
+            onUpdateContext(prev => ({ ...prev, targetUrls: e.target.value }));
         }
     };
 
@@ -331,17 +348,27 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
                     <div className="space-y-3">
                         <div className="flex justify-between items-center pl-1">
                             <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                                Step 1.5: Paste Search Results
+                                Step 1.5: Target URLs (Auto-Extract)
                             </label>
-                             <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
-                                Auto-extracts URLs
+                             <div className="flex items-center gap-2">
+                                <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+                                    Smart Paste Active
+                                </div>
+                                <button
+                                    onClick={() => copyToClipboard(context.targetUrls)}
+                                    className="p-1.5 bg-zinc-100 hover:bg-violet-100 text-zinc-400 hover:text-violet-600 rounded-lg transition-colors"
+                                    title="Copy URLs"
+                                >
+                                    <Copy className="w-3 h-3" />
+                                </button>
                             </div>
                         </div>
                         <textarea
-                            value={pastedResults}
-                            onChange={handlePasteResults}
-                            placeholder="Paste Google Search results here (Ctrl+V)..."
-                            className="w-full h-24 p-4 bg-white border-2 border-violet-100 rounded-xl text-sm font-mono text-zinc-700 resize-none focus:outline-none focus:border-violet-500 shadow-sm placeholder:text-zinc-300"
+                            value={context.targetUrls}
+                            onChange={handleTargetUrlsChange}
+                            onPaste={handleTargetUrlsPaste}
+                            placeholder="Paste Bing/Google Search results source here (Ctrl+V)..."
+                            className="w-full h-48 p-4 bg-white border-2 border-violet-100 rounded-xl text-sm font-mono text-zinc-700 resize-y focus:outline-none focus:border-violet-500 shadow-sm placeholder:text-zinc-300"
                         />
                     </div>
 

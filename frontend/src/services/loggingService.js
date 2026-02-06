@@ -31,8 +31,6 @@ export const LOG_CATEGORIES = {
 let logs = [];
 const MAX_LOGS = 2000; // Increased for combined logs
 const LOGS_STORAGE_KEY = 'orchestration_cockpit_logs';
-const DEDUPLICATION_WINDOW_MS = 60000; // 60 seconds
-const duplicateLogTracker = new Map();
 
 // Subscribers for real-time updates
 const subscribers = new Set();
@@ -80,33 +78,6 @@ export function log(level, component, functionName, message, data = {}, category
 
 // Internal add with dedup/limit
 function addLogEntry(entry) {
-    // Deduplication Logic
-    // We deduplicate based on Component + Message + Level
-    const dedupKey = `${entry.component}|${entry.level}|${entry.message}`;
-    const now = Date.now();
-    const lastTime = duplicateLogTracker.get(dedupKey);
-
-    // If we saw this exact log recently, skip it
-    if (lastTime && (now - lastTime < DEDUPLICATION_WINDOW_MS)) {
-        // Special case: If it's a different correlation ID or critical, maybe we want it?
-        // But for "Backend not available", we definitely want to suppress.
-        // We update the timestamp so the window extends (debounce behavior)
-        duplicateLogTracker.set(dedupKey, now);
-        return;
-    }
-
-    // Update tracker
-    duplicateLogTracker.set(dedupKey, now);
-
-    // Clean up tracker periodically (simple random check to avoid interval)
-    if (Math.random() < 0.01) {
-        for (const [key, time] of duplicateLogTracker.entries()) {
-            if (now - time > DEDUPLICATION_WINDOW_MS) {
-                duplicateLogTracker.delete(key);
-            }
-        }
-    }
-
     logs.push(entry);
 
     // Sort by timestamp if needed (usually pushing is sorted, but backend logs might be slightly out of sync)
