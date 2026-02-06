@@ -26,7 +26,11 @@ import json
 import sys
 from urllib.parse import urlparse
 from dataclasses import dataclass, field
-from ddgs import DDGS
+
+try:
+    from duckduckgo_search import DDGS
+except ImportError:
+    from ddgs import DDGS
 
 
 # ═══════════════════════════════════════════════════════
