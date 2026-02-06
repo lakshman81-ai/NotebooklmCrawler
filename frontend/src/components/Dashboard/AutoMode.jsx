@@ -356,27 +356,17 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
                     <div className="space-y-3">
                         <div className="flex justify-between items-center pl-1">
                             <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                                Step 1.5: Target URLs (Auto-Extract)
+                                Step 1.5: Paste Search Results
                             </label>
-                             <div className="flex items-center gap-2">
-                                <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
-                                    Smart Paste Active
-                                </div>
-                                <button
-                                    onClick={() => copyToClipboard(context.targetUrls)}
-                                    className="p-1.5 bg-zinc-100 hover:bg-violet-100 text-zinc-400 hover:text-violet-600 rounded-lg transition-colors"
-                                    title="Copy URLs"
-                                >
-                                    <Copy className="w-3 h-3" />
-                                </button>
+                             <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+                                Auto-extracts URLs
                             </div>
                         </div>
                         <textarea
-                            value={context.targetUrls}
-                            onChange={handleTargetUrlsChange}
-                            onPaste={handleTargetUrlsPaste}
-                            placeholder="Paste Bing/Google Search results source here (Ctrl+V)..."
-                            className="w-full h-48 p-4 bg-white border-2 border-violet-100 rounded-xl text-sm font-mono text-zinc-700 resize-y focus:outline-none focus:border-violet-500 shadow-sm placeholder:text-zinc-300"
+                            value={pastedResults}
+                            onChange={handlePasteResults}
+                            placeholder="Paste Google Search results here (Ctrl+V)..."
+                            className="w-full h-24 p-4 bg-white border-2 border-violet-100 rounded-xl text-sm font-mono text-zinc-700 resize-none focus:outline-none focus:border-violet-500 shadow-sm placeholder:text-zinc-300"
                         />
                     </div>
 
@@ -460,7 +450,7 @@ const InputField = ({ label, value, onChange, placeholder, type = "text", requir
     </div>
 );
 
-const TextAreaField = ({ label, value, onChange, placeholder, required = false, error, disabled = false, rows = 3, onPaste, rightAction }) => (
+const TextAreaField = ({ label, value, onChange, placeholder, required = false, error, disabled = false, rows = 3 }) => (
     <div className={`space-y-2 ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
         <div className="flex justify-between items-center pl-1">
             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
@@ -476,13 +466,7 @@ const TextAreaField = ({ label, value, onChange, placeholder, required = false, 
                 value={value}
                 onChange={onChange}
                 disabled={disabled}
-                onPaste={onPaste}
             />
-            {rightAction && (
-                <div className="absolute right-2 top-2 z-10">
-                    {rightAction}
-                </div>
-            )}
         </div>
     </div>
 );
@@ -1163,24 +1147,12 @@ const AutoMode = () => {
                                 <div className="animate-in slide-in-from-top-2">
                                     <TextAreaField
                                         label="Target URLs"
-                                        placeholder="Paste URLs (Smart Clean Enabled)..."
+                                        placeholder="Paste URLs here..."
                                         value={context.targetUrls}
                                         onChange={(e) => setContext({ ...context, targetUrls: e.target.value })}
                                         error={errors.targetUrls}
-                                        rows={8}
+                                        rows={2}
                                         disabled={false} // Always editable
-                                        onPaste={handleSmartPaste}
-                                        rightAction={
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(context.targetUrls);
-                                                }}
-                                                className="p-1.5 bg-zinc-100 hover:bg-violet-100 text-zinc-400 hover:text-violet-600 rounded-lg transition-colors"
-                                                title="Copy Clean URLs"
-                                            >
-                                                <Copy className="w-4 h-4" />
-                                            </button>
-                                        }
                                     />
                                 </div>
 
@@ -1244,9 +1216,6 @@ const AutoMode = () => {
                                     <InputField label="Report Keywords" placeholder="Focus terms..." value={context.keywordsReport} onChange={(e) => setContext({ ...context, keywordsReport: e.target.value })} />
                                 </div>
                                 <InputField label="Local File Path" placeholder="C:/Data/..." value={context.localFilePath} onChange={(e) => setContext({ ...context, localFilePath: e.target.value })} />
-                            </div>
-                            <div className="text-[10px] text-zinc-300 font-mono text-right pr-2 opacity-50">
-                                ver.06-02-26 11.56
                             </div>
                         </div>
 

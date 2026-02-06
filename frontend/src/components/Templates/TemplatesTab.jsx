@@ -6,7 +6,7 @@ import ExternalSourcePanel from './ExternalSourcePanel';
 import PromptOutputBox from './PromptOutputBox';
 import StudyGuideOptions from './StudyGuideOptions';
 import HandoutOptions from './HandoutOptions';
-import { generatePromptForFile, generateReportPrompt } from './promptGenerator';
+import { generatePromptForFile, generateReportPrompt, generateJulesPrompt } from './promptGenerator';
 import { templateService } from '../../services/templateService';
 import { logGate } from '../../services/loggingService';
 
@@ -62,8 +62,10 @@ const TemplatesTab = () => {
     const [reportBasis, setReportBasis] = useState('');
     const [inputPrompts, setInputPrompts] = useState('');
     const [outputPrompt, setOutputPrompt] = useState('');
+    const [julesPrompt, setJulesPrompt] = useState('');
     const [copiedInput, setCopiedInput] = useState(false);
     const [copiedOutput, setCopiedOutput] = useState(false);
+    const [copiedJules, setCopiedJules] = useState(false);
 
     // State for error messages
     const [errorMessage, setErrorMessage] = useState(null);
@@ -175,14 +177,29 @@ const TemplatesTab = () => {
         const newData = new Map(selectedSourceData);
 
         if (checked) {
-            // Attempt to load file data
-            const data = await loadTemplateFile(fileInfo.path);
-            if (data) {
-                newSelected.add(id);
-                newData.set(id, { ...fileInfo, data });
-                generatePromptForSource(id, fileInfo, data);
+            // Check if fileInfo already has metadata (from cached scan)
+            if (fileInfo.columns && fileInfo.columns.length > 0) {
+                 // Use cached metadata structure
+                 const data = {
+                    columns: fileInfo.columns,
+                    rowCount: fileInfo.rowCount || 0,
+                    sampleData: [], // Sample data might be missing in cache, but prompt gen handles it
+                    filename: fileInfo.filename,
+                    columnTypes: {}
+                 };
+                 newSelected.add(id);
+                 newData.set(id, { ...fileInfo, data });
+                 generatePromptForSource(id, fileInfo, data);
             } else {
-                logGate('TemplatesTab', 'SELECT:SOURCE:FAIL', { id, error: 'Failed to load data' });
+                // Fallback to fetching full file if no metadata
+                const data = await loadTemplateFile(fileInfo.path);
+                if (data) {
+                    newSelected.add(id);
+                    newData.set(id, { ...fileInfo, data });
+                    generatePromptForSource(id, fileInfo, data);
+                } else {
+                    logGate('TemplatesTab', 'SELECT:SOURCE:FAIL', { id, error: 'Failed to load data' });
+                }
             }
         } else {
             newSelected.delete(id);
@@ -199,35 +216,6 @@ const TemplatesTab = () => {
 
         setSelectedSources(newSelected);
         setSelectedSourceData(newData);
-    };
-
-    // Handle structure update (editable headers from TemplateSourcesPanel)
-    const handleStructureUpdate = (id, newStructureString) => {
-        logGate('TemplatesTab', 'UPDATE:STRUCTURE', { id, newStructureString });
-
-        const currentData = selectedSourceData.get(id);
-        if (!currentData || !currentData.data) return;
-
-        // Parse headers
-        const newHeaders = newStructureString.split(',').map(h => h.trim()).filter(h => h);
-
-        // Update local data state
-        const updatedDataPayload = {
-            ...currentData.data,
-            columns: newHeaders
-        };
-
-        const updatedFileInfo = {
-            ...currentData,
-            data: updatedDataPayload
-        };
-
-        const newData = new Map(selectedSourceData);
-        newData.set(id, updatedFileInfo);
-        setSelectedSourceData(newData);
-
-        // Regenerate prompt with new headers
-        generatePromptForSource(id, updatedFileInfo, updatedDataPayload);
     };
 
     // Load template file (Excel/CSV from backend)
@@ -408,6 +396,7 @@ const TemplatesTab = () => {
         setReportBasis(basis);
         setInputPrompts(inputPrompts);
         setOutputPrompt(outputPrompt);
+        setJulesPrompt(generateJulesPrompt(inputPrompts));
         setErrorMessage(null);
 
         // Scroll to report
@@ -430,6 +419,13 @@ const TemplatesTab = () => {
         setTimeout(() => setCopiedOutput(false), 2000);
     };
 
+    // Copy Jules prompt to clipboard
+    const copyJulesPrompt = () => {
+        navigator.clipboard.writeText(julesPrompt);
+        setCopiedJules(true);
+        setTimeout(() => setCopiedJules(false), 2000);
+    };
+
     return (
         <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
@@ -438,9 +434,9 @@ const TemplatesTab = () => {
                     <FileSpreadsheet className="w-7 h-7" />
                 </div>
                 <div>
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Templates/Notebooklm O/P Prompt Generator</h2>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Prompt Generator</h2>
                     <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mt-1">
-                        Generate NotebookLM prompts from Excel files
+                        Generate NotebookLM and Jules prompts from sources
                     </p>
                 </div>
             </div>
@@ -495,9 +491,7 @@ const TemplatesTab = () => {
                 <div className="lg:col-span-1 h-full">
                     <TemplateSourcesPanel
                         selectedSources={selectedSources}
-                        selectedSourceData={selectedSourceData}
                         onSelectionChange={handleSourceSelection}
-                        onUpdateStructure={handleStructureUpdate}
                     />
                 </div>
                 <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 h-fit">
@@ -590,7 +584,7 @@ const TemplatesTab = () => {
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <label className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                                Source Input Prompts (Editable)
+                                Notebooklm Input Prompt(Editable)
                             </label>
                             <button
                                 onClick={copyInputPrompts}
@@ -615,7 +609,7 @@ const TemplatesTab = () => {
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <label className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                                Final Output Prompt (Editable)
+                                Notebooklm Output Prompt(Editable)
                             </label>
                             <button
                                 onClick={copyOutputPrompt}
@@ -634,6 +628,31 @@ const TemplatesTab = () => {
                             placeholder="Edit the final prompt as needed before copying..."
                         />
                         <p className="text-[10px] text-slate-400 italic">Edit this prompt before copying to NotebookLM</p>
+                    </div>
+
+                    {/* Jules Prompt - Editable */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                                Jules Prompt (Editable)
+                            </label>
+                            <button
+                                onClick={copyJulesPrompt}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${copiedJules
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-white text-indigo-700 hover:bg-indigo-100 shadow-sm border border-indigo-200'
+                                    }`}
+                            >
+                                {copiedJules ? '✓ Copied!' : <span className="flex items-center gap-1"><Copy className="w-3 h-3" /> Copy</span>}
+                            </button>
+                        </div>
+                        <textarea
+                            value={julesPrompt}
+                            onChange={(e) => setJulesPrompt(e.target.value)}
+                            className="w-full h-56 p-4 bg-white border-2 border-indigo-300 rounded-xl text-sm font-mono text-slate-700 resize-y focus:outline-none focus:border-indigo-500"
+                            placeholder="Prompt for Jules..."
+                        />
+                        <p className="text-[10px] text-slate-400 italic">Optimized prompt for Jules based on the input context</p>
                     </div>
 
                     <div className="bg-indigo-100 border border-indigo-200 rounded-xl p-4">

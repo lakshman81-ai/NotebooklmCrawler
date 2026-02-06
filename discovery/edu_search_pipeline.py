@@ -119,12 +119,6 @@ URL_EXCLUDE_PATTERNS = [
     "/subscribe", "/premium", "/app-download", "/trial",
 ]
 
-BLOCK_DOMAINS = [
-    "bing.com", "google.com", "googleadservices.com",
-    "encrypted", "gstatic.com", "microsoft.com",
-    "youtube.com", "facebook.com", "twitter.com", "instagram.com"
-]
-
 MAX_RETRIES = 3
 BASE_DELAY = 2.0
 INTER_REQUEST_DELAY = 1.5
@@ -332,13 +326,12 @@ class EduSearchPipeline:
     ) -> list[SearchResult]:
         """
         Deduplicate, validate, and rank results.
-        Implements Parent/Child deduplication and Blocklist filtering.
 
         strict=False (default): All results returned, trusted sorted first.
         strict=True: Only trusted-domain results returned.
         """
+        seen: set[str] = set()
         output: list[SearchResult] = []
-        candidates: list[dict] = []
 
         # Prepare Blocklist
         active_blocks = set(BLOCK_DOMAINS)
@@ -364,78 +357,31 @@ class EduSearchPipeline:
             # Blocklist Check
             if any(bd in domain or bd in full_url_lower for bd in active_blocks):
                 continue
+            seen.add(norm)
 
-            if any(pat in full_url_lower for pat in URL_EXCLUDE_PATTERNS):
+            if any(pat in url.lower() for pat in URL_EXCLUDE_PATTERNS):
                 continue
 
+            domain = urlparse(url).netloc.replace("www.", "")
             is_trusted = any(td in domain for td in trusted_domains)
 
             if strict and not is_trusted:
                 continue
 
-            candidates.append({
-                "data": r,
-                "norm_url": norm,
-                "domain": domain,
-                "is_trusted": is_trusted
-            })
-
-        # 2. Parent/Child Deduplication
-        # If we have 'site.com' and 'site.com/page', keep only 'site.com/page'.
-        final_candidates = []
-
-        # Sort candidates so we have a consistent order (optional but helpful)
-        # We process O(N^2) so N should be small (~20-50 max from search)
-
-        for i, parent_cand in enumerate(candidates):
-            parent_url = parent_cand["norm_url"]
-            is_parent = False
-
-            # Ensure trailing slash for robust prefix checking
-            p_check = parent_url if parent_url.endswith('/') else parent_url + '/'
-
-            for j, child_cand in enumerate(candidates):
-                if i == j:
-                    continue
-
-                child_url = child_cand["norm_url"]
-                c_check = child_url if child_url.endswith('/') else child_url + '/'
-
-                # If child starts with parent (and is longer), then 'parent_cand' is indeed a parent
-                # Example: P=site.com/, C=site.com/page/ -> C starts with P -> P is parent
-                if c_check.startswith(p_check) and len(c_check) > len(p_check):
-                    is_parent = True
-                    break
-
-            if not is_parent:
-                final_candidates.append(parent_cand)
-
-        # 3. Construction & Deduplication (Set)
-        seen_urls = set()
-        for cand in final_candidates:
-            if cand["norm_url"] in seen_urls:
-                continue
-            seen_urls.add(cand["norm_url"])
-
-            r = cand["data"]
             output.append(SearchResult(
                 title=r.get("title", ""),
-                url=r.get("url", ""), # Keep original URL with params if needed, or use norm? Usually keep original.
+                url=url,
                 snippet=r.get("snippet", ""),
-                domain=cand["domain"],
-                is_trusted=cand["is_trusted"],
+                domain=domain,
+                is_trusted=is_trusted,
             ))
 
-        # 4. Sorting & Limiting
-        # Sort trusted first
         output.sort(key=lambda x: (0 if x.is_trusted else 1))
-
-        # Limit to Top 15 (as requested)
-        output = output[:15]
 
         logger.info(
             f"Filtered: {len(raw_results)} raw → {len(output)} results "
-            f"({sum(1 for r in output if r.is_trusted)} trusted)"
+            f"({sum(1 for r in output if r.is_trusted)} trusted, "
+            f"{sum(1 for r in output if not r.is_trusted)} other)"
         )
         return output
 

@@ -1,9 +1,9 @@
 
 > pycharm-crawler-ui@0.1.0 dev
-> vite
+> vite --port 5173
 
 
-  VITE v5.4.21  ready in 342 ms
+  VITE v5.4.21  ready in 346 ms
 
   ➜  Local:   http://localhost:5173/
   ➜  Network: use --host to expose

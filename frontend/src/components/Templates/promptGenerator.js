@@ -371,3 +371,33 @@ export function generateReportPrompt(
         outputPrompt: report
     };
 }
+
+/**
+ * Generate prompt for Jules based on aggregated input context
+ */
+export function generateJulesPrompt(context) {
+    return `### INSTRUCTION FOR JULES (AI ASSISTANT) ###
+
+I need you to process the following input context and prepare it for content generation.
+
+**1. INPUT CONTEXT:**
+\`\`\`
+${context}
+\`\`\`
+
+**2. YOUR TASK:**
+1. **Analyze the Input:** Understand the content, whether it's educational material, quiz data, or general information.
+2. **Data Quality & Enrichment:**
+   - Clean any artifacts.
+   - Standardize values.
+   - **Brainstorming & Improvement:** Brainstorm how this content can be made more effective. Suggest 3-5 specific improvements or additions that would make it more valuable.
+3. **Output Generation:**
+   - Provide a clean, structured representation of the data (JSON or CSV where applicable).
+   - Followed by your "Brainstorming & Enhancement" section.
+
+**3. CONTEXTUAL OPTIMIZATION:**
+- If this is for a game or educational worksheet, ensure questions/answers are engaging and age-appropriate.
+- Double-check for accuracy against the source material.
+
+Please confirm you understand these instructions.`;
+}
