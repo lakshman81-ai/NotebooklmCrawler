@@ -1,0 +1,164 @@
+{
+  "Harshitha": {
+    "Handout": [
+      {
+        "id": "harshitha-handout-master_index-csv",
+        "filename": "master_index.csv",
+        "path": "Harshitha/Handout/master_index.csv",
+        "columns": [
+          "subject_key",
+          "subject_name",
+          "topic_id",
+          "topic_name",
+          "topic_folder"
+        ],
+        "rowCount": 0
+      }
+    ],
+    "Questionnaire": [
+      {
+        "id": "harshitha-questionnaire-master_index-csv",
+        "filename": "master_index.csv",
+        "path": "Harshitha/Questionnaire/master_index.csv",
+        "columns": [
+          "subject_key",
+          "subject_name",
+          "topic_id",
+          "topic_name",
+          "topic_folder"
+        ],
+        "rowCount": 0
+      }
+    ],
+    "StudyGuide": [
+      {
+        "id": "harshitha-studyguide-master_index-csv",
+        "filename": "master_index.csv",
+        "path": "Harshitha/StudyGuide/master_index.csv",
+        "columns": [
+          "subject_key",
+          "subject_name",
+          "topic_id",
+          "topic_name",
+          "topic_folder"
+        ],
+        "rowCount": 0
+      }
+    ]
+  },
+  "Kani": {
+    "GameApp": {
+      "LearningGalaxy": [
+        {
+          "id": "kani-gameapp-learninggalaxy-english-csv",
+          "filename": "english.csv",
+          "path": "Kani/GameApp/LearningGalaxy/english.csv",
+          "columns": [
+            "game_type",
+            "text1",
+            "text2",
+            "answer",
+            "option1",
+            "option2",
+            "option3",
+            "option4",
+            "difficulty",
+            "category",
+            "know_more"
+          ],
+          "rowCount": 0
+        },
+        {
+          "id": "kani-gameapp-learninggalaxy-math-csv",
+          "filename": "math.csv",
+          "path": "Kani/GameApp/LearningGalaxy/math.csv",
+          "columns": [
+            "game_type",
+            "num1",
+            "num2",
+            "operation",
+            "answer",
+            "option1",
+            "option2",
+            "option3",
+            "option4",
+            "difficulty",
+            "hint",
+            "know_more"
+          ],
+          "rowCount": 0
+        }
+      ],
+      "_Files": [
+        {
+          "id": "kani-gameapp-skill_games_data-csv",
+          "filename": "SKILL_GAMES_DATA.csv",
+          "path": "Kani/GameApp/SKILL_GAMES_DATA.csv",
+          "columns": [
+            "game_type",
+            "difficulty",
+            "text1",
+            "text2",
+            "answer",
+            "option1",
+            "option2",
+            "option3",
+            "option4",
+            "hint"
+          ],
+          "rowCount": 0
+        }
+      ]
+    },
+    "Worksheet": {
+      "Verbs": [
+        {
+          "id": "kani-worksheet-verbs-questions-csv",
+          "filename": "questions.csv",
+          "path": "Kani/Worksheet/Verbs/questions.csv",
+          "columns": [
+            "Question",
+            "Option 1",
+            "Option 2",
+            "Option 3",
+            "Option 4",
+            "Answer",
+            "Hint",
+            "Know More",
+            "Link",
+            "YouTube",
+            "Image",
+            "Type",
+            "Concept/Subtopic",
+            "Worksheet No"
+          ],
+          "rowCount": 0
+        }
+      ],
+      "_Files": [
+        {
+          "id": "kani-worksheet-worksheet_template-csv",
+          "filename": "worksheet_template.csv",
+          "path": "Kani/Worksheet/worksheet_template.csv",
+          "columns": [
+            "Question",
+            "Answer A",
+            "Answer B",
+            "Answer C",
+            "Answer D",
+            "Correct Answer",
+            "Hint",
+            "Know More Description",
+            "Know More Link",
+            "YouTube URL",
+            "Image URL",
+            "Type",
+            "Concept",
+            "Worksheet No."
+          ],
+          "rowCount": 0
+        }
+      ]
+    }
+  }
+}
