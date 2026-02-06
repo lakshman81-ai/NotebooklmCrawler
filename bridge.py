@@ -483,6 +483,94 @@ async def upload_template_file(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
+
+def scan_templates_recursive(path: Path, root_path: Path) -> Any:
+    """
+    Recursively scans directory for CSV/Excel files.
+    Returns:
+      - List of file objects if no subdirectories found.
+      - Dictionary of folder_name -> content if subdirectories found.
+    """
+    if not path.exists():
+        return []
+
+    items = list(path.iterdir())
+    # Sort for consistent order
+    items.sort(key=lambda x: x.name)
+
+    subdirs = [x for x in items if x.is_dir()]
+    files = [x for x in items if x.is_file() and x.suffix.lower() in ['.csv', '.xlsx']]
+
+    # If we have subdirectories, we must return a dictionary to match FileTree schema
+    if subdirs:
+        result = {}
+        for subdir in subdirs:
+            subdir_content = scan_templates_recursive(subdir, root_path)
+            # Only include non-empty folders (or folders that might contain files)
+            if subdir_content:
+                result[subdir.name] = subdir_content
+
+        # Handle mixed content (files alongside folders)
+        if files:
+            # Create a "_Files" entry for loose files in this folder
+            file_list = []
+            for f in files:
+                rel_path = f.relative_to(root_path)
+                file_id = str(rel_path).replace(os.sep, '-').replace('.', '-').lower()
+                file_list.append({
+                    "id": file_id,
+                    "filename": f.name,
+                    "path": str(rel_path).replace(os.sep, '/')
+                })
+            # If there are only files, this branch logic wouldn't be hit (subdirs is empty).
+            # But since subdirs is NOT empty here, we add files under a special key.
+            # However, looking at the UI, keys are treated as folders.
+            # "_Files" will appear as a folder named "_Files". acceptable.
+            result["_Files"] = file_list
+
+        return result
+    else:
+        # Leaf directory (or root with no subdirs): Return list of files
+        file_list = []
+        for f in files:
+            rel_path = f.relative_to(root_path)
+            file_id = str(rel_path).replace(os.sep, '-').replace('.', '-').lower()
+            file_list.append({
+                "id": file_id,
+                "filename": f.name,
+                "path": str(rel_path).replace(os.sep, '/')
+            })
+        return file_list
+
+@app.post("/api/templates/refresh")
+async def refresh_templates():
+    """Scans templates dir and caches structure to public/templates.json"""
+    try:
+        templates_dir = PROJECT_ROOT / "templates"
+        if not templates_dir.exists():
+            templates_dir.mkdir(parents=True)
+
+        tree = scan_templates_recursive(templates_dir, templates_dir)
+
+        # Save to frontend/public/templates.json
+        public_dir = PROJECT_ROOT / "frontend" / "public"
+        public_dir.mkdir(exist_ok=True, parents=True)
+
+        cache_file = public_dir / "templates.json"
+        with open(cache_file, "w") as f:
+            json.dump(tree, f, indent=2)
+
+        # Also save to frontend/dist/templates.json if dist exists (for production serving)
+        dist_dir = PROJECT_ROOT / "frontend" / "dist"
+        if dist_dir.exists():
+            with open(dist_dir / "templates.json", "w") as f:
+                json.dump(tree, f, indent=2)
+
+        return {"success": True, "tree": tree, "message": "Template cache updated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

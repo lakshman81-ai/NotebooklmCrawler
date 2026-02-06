@@ -1,35 +1,12 @@
-import React, { useState } from 'react';
-import { FolderOpen, ChevronDown, ChevronRight, File } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FolderOpen, ChevronDown, ChevronRight, File, RefreshCw, Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '../../services/apiConfig';
 
 /**
  * Template file structure (Nested)
+ * Now loaded dynamically from templates.json or via API
  */
-const TEMPLATE_SOURCES = {
-    Kani: {
-        GameApp: {
-            LearningGalaxy: [
-                { id: 'kani-gameapp-lg-english', filename: 'english.csv', path: 'Kani/GameApp/LearningGalaxy/english.csv' },
-                { id: 'kani-gameapp-lg-math', filename: 'math.csv', path: 'Kani/GameApp/LearningGalaxy/math.csv' },
-            ]
-        },
-        Worksheet: {
-            Verbs: [
-                { id: 'kani-worksheet-verbs', filename: 'questions.csv', path: 'Kani/Worksheet/Verbs/questions.csv' }
-            ]
-        }
-    },
-    Harshitha: {
-        Questionnaire: [
-            { id: 'harshitha-questionnaire-index', filename: 'master_index.csv', path: 'Harshitha/Questionnaire/master_index.csv' }
-        ],
-        Handout: [
-            { id: 'harshitha-handout-index', filename: 'master_index.csv', path: 'Harshitha/Handout/master_index.csv' }
-        ],
-        StudyGuide: [
-            { id: 'harshitha-studyguide-index', filename: 'master_index.csv', path: 'Harshitha/StudyGuide/master_index.csv' }
-        ]
-    }
-};
+let TEMPLATE_SOURCES = {};
 
 /**
  * Recursive Tree Component
@@ -117,8 +94,62 @@ const FileTree = ({ data, parentPath = '', level = 0, selectedSources, onSelecti
 };
 
 const TemplateSourcesPanel = ({ selectedSources, onSelectionChange }) => {
+    // State for template data
+    const [templateData, setTemplateData] = useState({});
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
     // Initial State: Expand top-level folders
     const [expandedSections, setExpandedSections] = useState(new Set(['Kani', 'Harshitha']));
+
+    // Load templates on mount (Cached)
+    useEffect(() => {
+        const loadCachedTemplates = async () => {
+            try {
+                // Try fetching the cached file from public directory
+                // Note: In Vite dev, public/ is at root. In prod, it's at root.
+                // We use a timestamp to avoid browser caching of the file itself if needed,
+                // but user asked for "do once", so maybe standard caching is fine.
+                // However, "fetch only if user clicks refresh" implies we trust the file until refreshed.
+                const response = await fetch('/templates.json');
+                if (response.ok) {
+                    const data = await response.json();
+                    setTemplateData(data);
+                    TEMPLATE_SOURCES = data; // Update export if needed
+                    // Auto-expand top level keys
+                    setExpandedSections(new Set(Object.keys(data)));
+                } else {
+                    // Cache missing, trigger initial refresh
+                    console.log("Template cache missing, triggering refresh...");
+                    handleRefresh();
+                }
+            } catch (err) {
+                console.warn("Failed to load template cache", err);
+                // Fallback to initial refresh
+                handleRefresh();
+            }
+        };
+        loadCachedTemplates();
+    }, []);
+
+    const handleRefresh = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/templates/refresh`, { method: 'POST' });
+            if (!res.ok) throw new Error("Failed to refresh templates");
+
+            const result = await res.json();
+            setTemplateData(result.tree);
+            TEMPLATE_SOURCES = result.tree;
+            setExpandedSections(new Set(Object.keys(result.tree)));
+        } catch (e) {
+            console.error("Template refresh error:", e);
+            setError("Failed to load templates. Is backend running?");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const toggleExpand = (path) => {
         setExpandedSections(prev => {
@@ -135,27 +166,49 @@ const TemplateSourcesPanel = ({ selectedSources, onSelectionChange }) => {
     return (
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 space-y-5 h-full flex flex-col">
             {/* Header */}
-            <div className="flex items-center gap-3 pb-4 border-b border-slate-100 flex-shrink-0">
-                <div className="p-2 bg-indigo-50 rounded-xl">
-                    <FolderOpen className="w-5 h-5 text-indigo-600" />
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-50 rounded-xl">
+                        <FolderOpen className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-base font-black text-slate-800">Template Sources</h3>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                            Select files to generate prompts
+                        </p>
+                    </div>
                 </div>
-                <div>
-                    <h3 className="text-base font-black text-slate-800">Template Sources</h3>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                        Select files to generate prompts
-                    </p>
-                </div>
+                <button
+                    onClick={handleRefresh}
+                    disabled={loading}
+                    className="p-2 hover:bg-slate-100 rounded-full transition-colors disabled:opacity-50 text-slate-500 hover:text-indigo-600"
+                    title="Refresh Templates"
+                >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                </button>
             </div>
+
+            {error && (
+                <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg">
+                    {error}
+                </div>
+            )}
 
             {/* File Tree - Scrollable Area */}
             <div className="space-y-2 overflow-y-auto custom-scrollbar pr-2 flex-grow min-h-[300px]">
-                <FileTree
-                    data={TEMPLATE_SOURCES}
-                    selectedSources={selectedSources}
-                    onSelectionChange={onSelectionChange}
-                    expanded={expandedSections}
-                    toggleExpand={toggleExpand}
-                />
+                {Object.keys(templateData).length === 0 && !loading && !error ? (
+                    <div className="text-center py-10 text-slate-400 text-sm">
+                        No templates found. <br/> Click refresh to scan.
+                    </div>
+                ) : (
+                    <FileTree
+                        data={templateData}
+                        selectedSources={selectedSources}
+                        onSelectionChange={onSelectionChange}
+                        expanded={expandedSections}
+                        toggleExpand={toggleExpand}
+                    />
+                )}
             </div>
 
             {/* Footer Stats */}
