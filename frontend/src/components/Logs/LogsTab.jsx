@@ -6,7 +6,8 @@ const LogsTab = () => {
     // State
     const [allLogs, setAllLogs] = useState([]);
     const [isPaused, setIsPaused] = useState(false);
-    const [selectedLogId, setSelectedLogId] = useState(null);
+    const [selectedLogIds, setSelectedLogIds] = useState(new Set());
+    const lastSelectedIdRef = useRef(null);
     const [filters, setFilters] = useState({
         level: 'ALL',
         component: '',
@@ -82,9 +83,49 @@ const LogsTab = () => {
         shouldAutoScroll.current = isNearBottom;
     };
 
+    const handleLogClick = (log, e) => {
+        const id = log.id;
+        setSelectedLogIds(prev => {
+            const newSet = new Set(prev);
+
+            if (e.ctrlKey || e.metaKey) {
+                // Toggle selection
+                if (newSet.has(id)) {
+                    newSet.delete(id);
+                } else {
+                    newSet.add(id);
+                    lastSelectedIdRef.current = id;
+                }
+            } else if (e.shiftKey && lastSelectedIdRef.current) {
+                // Range selection
+                const startIdx = filteredLogs.findIndex(l => l.id === lastSelectedIdRef.current);
+                const endIdx = filteredLogs.findIndex(l => l.id === id);
+
+                if (startIdx !== -1 && endIdx !== -1) {
+                    const start = Math.min(startIdx, endIdx);
+                    const end = Math.max(startIdx, endIdx);
+                    const range = filteredLogs.slice(start, end + 1);
+
+                    // Standard shift-click behavior: Clear others unless Ctrl held (but simpler to just clear)
+                    if (!e.ctrlKey && !e.metaKey) {
+                        newSet.clear();
+                    }
+                    range.forEach(l => newSet.add(l.id));
+                }
+            } else {
+                // Single selection
+                newSet.clear();
+                newSet.add(id);
+                lastSelectedIdRef.current = id;
+            }
+            return newSet;
+        });
+    };
+
     const handleClear = () => {
         clearLogs();
         setAllLogs([]);
+        setSelectedLogIds(new Set());
     };
 
     const handleExport = () => {
@@ -251,8 +292,8 @@ const LogsTab = () => {
                             <LogEntry
                                 key={log.id}
                                 log={log}
-                                isSelected={selectedLogId === log.id}
-                                onSelect={() => setSelectedLogId(selectedLogId === log.id ? null : log.id)}
+                                isSelected={selectedLogIds.has(log.id)}
+                                onSelect={(e) => handleLogClick(log, e)}
                                 formatTime={formatTime}
                                 getLevelColor={getLevelColor}
                             />
@@ -262,20 +303,28 @@ const LogsTab = () => {
                 </div>
 
                 {/* Detail Panel (Conditionally rendered side panel) */}
-                {selectedLogId && (
+                {selectedLogIds.size > 0 && (
                     <div className="w-[400px] border-l border-slate-200 bg-white flex flex-col shadow-xl z-10 animate-in slide-in-from-right duration-300">
                         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                            <span className="text-xs font-black uppercase tracking-widest text-slate-500">Log Details</span>
-                            <button onClick={() => setSelectedLogId(null)} className="text-slate-400 hover:text-slate-600">
+                            <span className="text-xs font-black uppercase tracking-widest text-slate-500">
+                                {selectedLogIds.size} Log{selectedLogIds.size !== 1 ? 's' : ''} Selected
+                            </span>
+                            <button onClick={() => setSelectedLogIds(new Set())} className="text-slate-400 hover:text-slate-600">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4">
-                            {(() => {
-                                const log = allLogs.find(l => l.id === selectedLogId);
-                                if (!log) return null;
-                                return <LogDetailView log={log} />;
-                            })()}
+                            {selectedLogIds.size === 1 ? (
+                                (() => {
+                                    const log = allLogs.find(l => l.id === Array.from(selectedLogIds)[0]);
+                                    if (!log) return null;
+                                    return <LogDetailView log={log} />;
+                                })()
+                            ) : (
+                                <MultiLogDetailView
+                                    logs={allLogs.filter(l => selectedLogIds.has(l.id))}
+                                />
+                            )}
                         </div>
                     </div>
                 )}
@@ -323,6 +372,65 @@ const LogEntry = ({ log, isSelected, onSelect, formatTime, getLevelColor }) => {
                 </div>
                 <div className="shrink-0">
                     <ChevronRight className={`w-4 h-4 text-slate-300 transition-transform ${isSelected ? 'rotate-90 text-indigo-400' : 'group-hover:text-slate-400'}`} />
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const MultiLogDetailView = ({ logs }) => {
+    // Sort logs by timestamp
+    const sortedLogs = [...logs].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    // Combine payloads
+    const combinedPayload = sortedLogs.map(l => ({
+        id: l.id,
+        timestamp: l.timestamp,
+        component: l.component,
+        message: l.message,
+        payload: l.data
+    }));
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(JSON.stringify(combinedPayload, null, 2));
+    };
+
+    return (
+        <div className="space-y-6 font-mono text-xs">
+            <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">
+                    Selected Summary
+                </label>
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-slate-600 space-y-1">
+                     <div className="flex justify-between">
+                        <span>Total Items:</span>
+                        <span className="font-bold">{logs.length}</span>
+                     </div>
+                     <div className="flex justify-between">
+                        <span>Sources:</span>
+                        <span className="font-bold">
+                            {[...new Set(logs.map(l => l.component))].join(', ')}
+                        </span>
+                     </div>
+                </div>
+            </div>
+
+            <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">
+                        Concatenated Data Payload
+                    </label>
+                    <button
+                        onClick={handleCopy}
+                        className="text-[9px] text-indigo-500 hover:text-indigo-700 font-bold flex items-center gap-1"
+                    >
+                        <Copy className="w-3 h-3" /> Copy All JSON
+                    </button>
+                </div>
+                <div className="bg-slate-900 text-slate-300 p-3 rounded-xl overflow-x-auto border border-slate-800 h-[calc(100vh-400px)]">
+                    <pre className="text-[10px] leading-relaxed">
+                        {JSON.stringify(combinedPayload, null, 2)}
+                    </pre>
                 </div>
             </div>
         </div>
