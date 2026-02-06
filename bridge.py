@@ -501,6 +501,32 @@ def scan_templates_recursive(path: Path, root_path: Path) -> Any:
     subdirs = [x for x in items if x.is_dir()]
     files = [x for x in items if x.is_file() and x.suffix.lower() in ['.csv', '.xlsx']]
 
+    # Helper to extract metadata (headers)
+    def get_file_metadata(f: Path):
+        rel_path = f.relative_to(root_path)
+        file_id = str(rel_path).replace(os.sep, '-').replace('.', '-').lower()
+        metadata = {
+            "id": file_id,
+            "filename": f.name,
+            "path": str(rel_path).replace(os.sep, '/'),
+            "columns": [],
+            "rowCount": 0
+        }
+        try:
+            # Basic metadata extraction
+            ext = f.suffix.lower()
+            if ext == '.csv':
+                df = pd.read_csv(f, nrows=5)
+                metadata["columns"] = df.columns.tolist()
+                metadata["rowCount"] = 0 # Not counting full rows for speed in scan
+            elif ext == '.xlsx':
+                df = pd.read_excel(f, nrows=5, engine='openpyxl')
+                metadata["columns"] = df.columns.tolist()
+                metadata["rowCount"] = 0
+        except Exception as e:
+            print(f"Error reading metadata for {f}: {e}")
+        return metadata
+
     # If we have subdirectories, we must return a dictionary to match FileTree schema
     if subdirs:
         result = {}
@@ -513,34 +539,13 @@ def scan_templates_recursive(path: Path, root_path: Path) -> Any:
         # Handle mixed content (files alongside folders)
         if files:
             # Create a "_Files" entry for loose files in this folder
-            file_list = []
-            for f in files:
-                rel_path = f.relative_to(root_path)
-                file_id = str(rel_path).replace(os.sep, '-').replace('.', '-').lower()
-                file_list.append({
-                    "id": file_id,
-                    "filename": f.name,
-                    "path": str(rel_path).replace(os.sep, '/')
-                })
-            # If there are only files, this branch logic wouldn't be hit (subdirs is empty).
-            # But since subdirs is NOT empty here, we add files under a special key.
-            # However, looking at the UI, keys are treated as folders.
-            # "_Files" will appear as a folder named "_Files". acceptable.
+            file_list = [get_file_metadata(f) for f in files]
             result["_Files"] = file_list
 
         return result
     else:
         # Leaf directory (or root with no subdirs): Return list of files
-        file_list = []
-        for f in files:
-            rel_path = f.relative_to(root_path)
-            file_id = str(rel_path).replace(os.sep, '-').replace('.', '-').lower()
-            file_list.append({
-                "id": file_id,
-                "filename": f.name,
-                "path": str(rel_path).replace(os.sep, '/')
-            })
-        return file_list
+        return [get_file_metadata(f) for f in files]
 
 @app.post("/api/templates/refresh")
 async def refresh_templates():

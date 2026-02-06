@@ -177,14 +177,29 @@ const TemplatesTab = () => {
         const newData = new Map(selectedSourceData);
 
         if (checked) {
-            // Attempt to load file data
-            const data = await loadTemplateFile(fileInfo.path);
-            if (data) {
-                newSelected.add(id);
-                newData.set(id, { ...fileInfo, data });
-                generatePromptForSource(id, fileInfo, data);
+            // Check if fileInfo already has metadata (from cached scan)
+            if (fileInfo.columns && fileInfo.columns.length > 0) {
+                 // Use cached metadata structure
+                 const data = {
+                    columns: fileInfo.columns,
+                    rowCount: fileInfo.rowCount || 0,
+                    sampleData: [], // Sample data might be missing in cache, but prompt gen handles it
+                    filename: fileInfo.filename,
+                    columnTypes: {}
+                 };
+                 newSelected.add(id);
+                 newData.set(id, { ...fileInfo, data });
+                 generatePromptForSource(id, fileInfo, data);
             } else {
-                logGate('TemplatesTab', 'SELECT:SOURCE:FAIL', { id, error: 'Failed to load data' });
+                // Fallback to fetching full file if no metadata
+                const data = await loadTemplateFile(fileInfo.path);
+                if (data) {
+                    newSelected.add(id);
+                    newData.set(id, { ...fileInfo, data });
+                    generatePromptForSource(id, fileInfo, data);
+                } else {
+                    logGate('TemplatesTab', 'SELECT:SOURCE:FAIL', { id, error: 'Failed to load data' });
+                }
             }
         } else {
             newSelected.delete(id);
