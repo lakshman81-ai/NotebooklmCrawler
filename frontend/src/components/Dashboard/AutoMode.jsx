@@ -70,7 +70,6 @@ const buildEducationalQuery = (context, config) => {
 // --- URL Cleaning Logic ---
 const cleanAndExtractUrls = (text, trustedDomainsStr) => {
     // 1. Initial Extraction
-    // Regex to find http/https URLs, stopping at common delimiters like quotes, brackets, whitespace
     const urlRegex = /https?:\/\/[^\s"<>]+/g;
     const rawMatches = text.match(urlRegex) || [];
 
@@ -78,98 +77,98 @@ const cleanAndExtractUrls = (text, trustedDomainsStr) => {
     const BLOCK_DOMAINS = [
         'w3.org', 'schemas.live.com', 'microsoft.com',
         'bing.com/search', 'bing.com/maps', 'bing.com/travel', 'bing.com/images', 'bing.com/videos', 'bing.com/ck',
-        'th.bing.com', 'r.bing.com', 'business.bing.com', 'go.microsoft.com', 'storage.live.com'
-    ];
-
-    const EDU_DOMAINS = [
-        'khanacademy.org', 'byjus.com', 'vedantu.com', 'ncert.nic.in', 'toppr.com',
-        'meritnation.com', 'youtube.com', 'scribd.com', 'slideshare.net', 'wayground.com',
-        'justtutors.com', 'mathworksheets4kids.com', 'flexbooks.ck12.org', 'studocu.com',
-        'ck12.org', 'ixl.com', 'quizlet.com', 'brainly.com'
+        'th.bing.com', 'r.bing.com', 'business.bing.com', 'go.microsoft.com', 'storage.live.com',
+        'google.com', 'google.co.in', 'googleadservices.com', 'encrypted', 'gstatic.com'
     ];
 
     const EXTENSION_BLOCK = ['.js', '.css', '.png', '.jpg', '.svg', '.gif', '.ico', '.woff', '.ttf'];
 
-    const userTrusted = trustedDomainsStr ? trustedDomainsStr.split(',').map(d => d.trim()).filter(d => d) : [];
-    const ALLOW_DOMAINS = [...EDU_DOMAINS, ...userTrusted];
+    let decodedUrls = [];
 
-    const decodedUrls = [];
-
+    // 3. Extraction & Decoding Loop
     rawMatches.forEach(rawUrl => {
         let cleanUrl = rawUrl;
-
-        // Trim trailing punctuation often captured by regex
         cleanUrl = cleanUrl.replace(/[.,;)]+$/, '');
-
-        // Decode common HTML entities that break URL parsing
         cleanUrl = cleanUrl.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 
-        // Post-decode cleanup: detected invalid chars that were encoded (like quotes ending a JSON string in HTML)
         const invalidCharIndex = cleanUrl.search(/["<>]/);
         if (invalidCharIndex !== -1) {
             cleanUrl = cleanUrl.substring(0, invalidCharIndex);
         }
 
-        // 3. Decoding Bing Redirects (bing.com/ck/a? ... &u=a1...)
+        // Bing Redirect Logic
         if (cleanUrl.includes('bing.com/ck/a')) {
             try {
                 const urlObj = new URL(cleanUrl);
                 const uParam = urlObj.searchParams.get('u');
                 if (uParam) {
-                    // Remove 'a1' prefix if present (Bing specific encoding)
                     let encoded = uParam.startsWith('a1') ? uParam.substring(2) : uParam;
-
-                    // Fix Base64 URL safe characters
                     encoded = encoded.replace(/-/g, '+').replace(/_/g, '/');
-
-                    // Add padding if needed
-                    while (encoded.length % 4 !== 0) {
-                        encoded += '=';
-                    }
-
+                    while (encoded.length % 4 !== 0) encoded += '=';
                     cleanUrl = atob(encoded);
                 }
-            } catch (e) {
-                // If decoding fails, skip or keep raw?
-                // Usually safe to skip as it's likely broken
-                console.warn("Failed to decode Bing URL:", cleanUrl);
-                return;
-            }
+            } catch (e) { return; }
         }
 
-        // 4. Filtering
+        // 4. Filtering Logic
         try {
             const urlObj = new URL(cleanUrl);
             const hostname = urlObj.hostname.toLowerCase();
             const pathname = urlObj.pathname.toLowerCase();
             const fullStr = (hostname + pathname).toLowerCase();
 
-            // Block List Check
+            // Block Lists (Bing & Google Specifics)
             if (BLOCK_DOMAINS.some(d => fullStr.includes(d))) return;
+            if (hostname.includes('google') && !hostname.includes('googleapis')) return; // General Google Block
+            if (fullStr.includes('googleadservices')) return;
+            if (fullStr.includes('gstatic')) return;
+            if (fullStr.includes('encrypted')) return;
 
-            // Extension Check (Skip assets)
+            // Explicit Bing Block (catch-all)
+            if (hostname.includes('bing.com')) return;
+
+            // Extension Check
             if (EXTENSION_BLOCK.some(ext => pathname.endsWith(ext))) return;
-
-            // Allow List Check (Educational Bias)
-            // If it's not in the block list, we generally accept it,
-            // BUT for high quality, we might prioritize known domains.
-            // For now, let's keep it broad but filter obvious noise.
-
-            // Refined Logic: If it looks like a search engine result page, skip it
-            if (hostname.includes('google') && pathname.includes('search')) return;
-            if (hostname.includes('bing') && pathname.includes('search')) return;
-            if (hostname.includes('yahoo') && pathname.includes('search')) return;
 
             decodedUrls.push(cleanUrl);
 
-        } catch (e) {
-            // Invalid URL
-            return;
-        }
+        } catch (e) { return; }
     });
 
-    // 5. Deduplicate
-    return [...new Set(decodedUrls)];
+    // 5. Parent/Child Deduplication Logic & Sorting
+    // If we have 'site.com' and 'site.com/page', keep only 'site.com/page'.
+
+    // First, unique list
+    decodedUrls = [...new Set(decodedUrls)];
+
+    const finalUrls = [];
+
+    for (let i = 0; i < decodedUrls.length; i++) {
+        const potentialParent = decodedUrls[i];
+        let isParent = false;
+
+        for (let j = 0; j < decodedUrls.length; j++) {
+            if (i === j) continue;
+            const potentialChild = decodedUrls[j];
+
+            // Normalize: remove trailing slash for comparison base
+            const pNorm = potentialParent.endsWith('/') ? potentialParent : potentialParent + '/';
+            const cNorm = potentialChild.endsWith('/') ? potentialChild : potentialChild + '/';
+
+            // If another URL starts with this one (is a child), then this one is a parent
+            if (cNorm.startsWith(pNorm) && cNorm !== pNorm) {
+                isParent = true;
+                break;
+            }
+        }
+
+        if (!isParent) {
+            finalUrls.push(potentialParent);
+        }
+    }
+
+    // 6. Limit to Top 15
+    return finalUrls.slice(0, 15);
 };
 
 // --- Guided Mode Popup Component ---
