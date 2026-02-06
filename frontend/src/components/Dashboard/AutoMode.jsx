@@ -189,7 +189,7 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
                                     <button
                                         onClick={() => {
                                             const url = context.intelligenceSource === 'DDG'
-                                                ? `https://duckduckgo.com/?q=${encodeURIComponent(inputPromptText)}`
+                                                ? `https://www.bing.com/search?q=${encodeURIComponent(inputPromptText)}`
                                                 : `https://www.google.com/search?q=${encodeURIComponent(inputPromptText)}`;
                                             window.open(url, '_blank');
                                         }}
@@ -200,15 +200,15 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
                                         }`}
                                     >
                                         {context.intelligenceSource === 'DDG' ? <Search className="w-3 h-3" /> : <Globe className="w-3 h-3" />}
-                                        {context.intelligenceSource === 'DDG' ? 'Open DuckDuckGo' : 'Open Google Search'}
+                                        {context.intelligenceSource === 'DDG' ? 'Open Bing' : 'Open Google Search'}
                                     </button>
                                     {context.intelligenceSource === 'DDG' && (
                                         <button
-                                            onClick={() => window.open(`https://duckduckgo.com/?q=${encodeURIComponent(inputPromptText)}&ia=chat`, '_blank')}
+                                            onClick={() => window.open(`https://www.bing.com/search?q=${encodeURIComponent(inputPromptText)}&showconv=1`, '_blank')}
                                             className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 text-violet-600 hover:bg-violet-100 rounded-lg text-xs font-bold transition-all"
                                         >
                                             <Sparkles className="w-3 h-3" />
-                                            Ask Duck.ai
+                                            Ask Bing Chat
                                         </button>
                                     )}
                                 </div>
@@ -436,7 +436,7 @@ const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onTogg
                         />
                         <SourceButton
                             id="DDG"
-                            label="DUCKDUCKGO"
+                            label="BING"
                             disabled={fetchersDisabled}
                             icon={Search}
                         />
