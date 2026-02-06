@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './apiConfig';
+const API_BASE = 'http://localhost:8000';
 
 /**
  * Template Service - Handles Excel/CSV file operations via backend API
@@ -11,7 +11,7 @@ export const templateService = {
      */
     async readTemplateFile(filepath) {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/template/read`, {
+            const response = await fetch(`${API_BASE}/api/template/read`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ filepath })
@@ -39,7 +39,7 @@ export const templateService = {
             const formData = new FormData();
             formData.append('file', file);
 
-            const response = await fetch(`${API_BASE_URL}/api/template/upload`, {
+            const response = await fetch(`${API_BASE}/api/template/upload`, {
                 method: 'POST',
                 body: formData
             });

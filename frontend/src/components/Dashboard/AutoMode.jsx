@@ -67,147 +67,25 @@ const buildEducationalQuery = (context, config) => {
     return parts.join(' ');
 };
 
-// --- URL Cleaning Logic ---
-const cleanAndExtractUrls = (text, trustedDomainsStr) => {
-    // 1. Initial Extraction
-    // Regex to find http/https URLs, stopping at common delimiters like quotes, brackets, whitespace
-    const urlRegex = /https?:\/\/[^\s"<>]+/g;
-    const rawMatches = text.match(urlRegex) || [];
-
-    // 2. Constants
-    const BLOCK_DOMAINS = [
-        'w3.org', 'schemas.live.com', 'microsoft.com',
-        'bing.com/search', 'bing.com/maps', 'bing.com/travel', 'bing.com/images', 'bing.com/videos', 'bing.com/ck',
-        'th.bing.com', 'r.bing.com', 'business.bing.com', 'go.microsoft.com', 'storage.live.com'
-    ];
-
-    const EDU_DOMAINS = [
-        'khanacademy.org', 'byjus.com', 'vedantu.com', 'ncert.nic.in', 'toppr.com',
-        'meritnation.com', 'youtube.com', 'scribd.com', 'slideshare.net', 'wayground.com',
-        'justtutors.com', 'mathworksheets4kids.com', 'flexbooks.ck12.org', 'studocu.com',
-        'ck12.org', 'ixl.com', 'quizlet.com', 'brainly.com'
-    ];
-
-    const EXTENSION_BLOCK = ['.js', '.css', '.png', '.jpg', '.svg', '.gif', '.ico', '.woff', '.ttf'];
-
-    const userTrusted = trustedDomainsStr ? trustedDomainsStr.split(',').map(d => d.trim()).filter(d => d) : [];
-    const ALLOW_DOMAINS = [...EDU_DOMAINS, ...userTrusted];
-
-    const decodedUrls = [];
-
-    rawMatches.forEach(rawUrl => {
-        let cleanUrl = rawUrl;
-
-        // Trim trailing punctuation often captured by regex
-        cleanUrl = cleanUrl.replace(/[.,;)]+$/, '');
-
-        // Decode common HTML entities that break URL parsing
-        cleanUrl = cleanUrl.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-
-        // Post-decode cleanup: detected invalid chars that were encoded (like quotes ending a JSON string in HTML)
-        const invalidCharIndex = cleanUrl.search(/["<>]/);
-        if (invalidCharIndex !== -1) {
-            cleanUrl = cleanUrl.substring(0, invalidCharIndex);
-        }
-
-        // 3. Decoding Bing Redirects (bing.com/ck/a? ... &u=a1...)
-        if (cleanUrl.includes('bing.com/ck/a')) {
-            try {
-                const urlObj = new URL(cleanUrl);
-                const uParam = urlObj.searchParams.get('u');
-                if (uParam) {
-                    // Remove 'a1' prefix if present (Bing specific encoding)
-                    let encoded = uParam.startsWith('a1') ? uParam.substring(2) : uParam;
-
-                    // Fix Base64 URL safe characters
-                    encoded = encoded.replace(/-/g, '+').replace(/_/g, '/');
-
-                    // Add padding if needed
-                    while (encoded.length % 4 !== 0) {
-                        encoded += '=';
-                    }
-
-                    cleanUrl = atob(encoded);
-                }
-            } catch (e) {
-                // If decoding fails, skip or keep raw?
-                // Usually safe to skip as it's likely broken
-                console.warn("Failed to decode Bing URL:", cleanUrl);
-                return;
-            }
-        }
-
-        // 4. Filtering
-        try {
-            const urlObj = new URL(cleanUrl);
-            const hostname = urlObj.hostname.toLowerCase();
-            const pathname = urlObj.pathname.toLowerCase();
-            const fullStr = (hostname + pathname).toLowerCase();
-
-            // Block List Check
-            if (BLOCK_DOMAINS.some(d => fullStr.includes(d))) return;
-
-            // Extension Check (Skip assets)
-            if (EXTENSION_BLOCK.some(ext => pathname.endsWith(ext))) return;
-
-            // Allow List Check (Educational Bias)
-            // If it's not in the block list, we generally accept it,
-            // BUT for high quality, we might prioritize known domains.
-            // For now, let's keep it broad but filter obvious noise.
-
-            // Refined Logic: If it looks like a search engine result page, skip it
-            if (hostname.includes('google') && pathname.includes('search')) return;
-            if (hostname.includes('bing') && pathname.includes('search')) return;
-            if (hostname.includes('yahoo') && pathname.includes('search')) return;
-
-            decodedUrls.push(cleanUrl);
-
-        } catch (e) {
-            // Invalid URL
-            return;
-        }
-    });
-
-    // 5. Deduplicate
-    return [...new Set(decodedUrls)];
-};
-
 // --- Guided Mode Popup Component ---
 const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) => {
     const [logs, setLogs] = useState([]);
     const [copiedOutput, setCopiedOutput] = useState(false);
     const [outputPromptText, setOutputPromptText] = useState('');
     const [inputPromptText, setInputPromptText] = useState('');
+    const [pastedResults, setPastedResults] = useState('');
 
-    const handleTargetUrlsPaste = (e) => {
-        e.preventDefault();
-        const clipboardData = e.clipboardData || window.clipboardData;
-        const pastedText = clipboardData.getData('Text');
+    const handlePasteResults = (e) => {
+        const text = e.target.value;
+        setPastedResults(text);
 
-        const cleanedUrls = cleanAndExtractUrls(pastedText, config.trustedDomains);
-
-        if (cleanedUrls.length > 0 && onUpdateContext) {
-             onUpdateContext(prev => ({
-                 ...prev,
-                 targetUrls: cleanedUrls.join('\n')
-             }));
-        } else if (onUpdateContext) {
-             // Fallback: If no URLs extracted, just paste the text (maybe user is manually editing)
-             // But if it looks like HTML, we probably shouldn't.
-             if (!pastedText.includes('<html')) {
-                 onUpdateContext(prev => ({
-                     ...prev,
-                     targetUrls: pastedText
-                 }));
-             } else {
-                 alert("No valid educational URLs found in pasted content.");
-             }
-        }
-    };
-
-    const handleTargetUrlsChange = (e) => {
-        if (onUpdateContext) {
-            onUpdateContext(prev => ({ ...prev, targetUrls: e.target.value }));
+        // Extract URLs
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const matches = text.match(urlRegex);
+        if (matches && matches.length > 0 && onUpdateContext) {
+             const uniqueUrls = [...new Set(matches)];
+             // Update targetUrls in context (replacing existing to avoid duplicates/confusion)
+             onUpdateContext(prev => ({ ...prev, targetUrls: uniqueUrls.join('\n') }));
         }
     };
 
@@ -348,27 +226,17 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
                     <div className="space-y-3">
                         <div className="flex justify-between items-center pl-1">
                             <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                                Step 1.5: Target URLs (Auto-Extract)
+                                Step 1.5: Paste Search Results
                             </label>
-                             <div className="flex items-center gap-2">
-                                <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
-                                    Smart Paste Active
-                                </div>
-                                <button
-                                    onClick={() => copyToClipboard(context.targetUrls)}
-                                    className="p-1.5 bg-zinc-100 hover:bg-violet-100 text-zinc-400 hover:text-violet-600 rounded-lg transition-colors"
-                                    title="Copy URLs"
-                                >
-                                    <Copy className="w-3 h-3" />
-                                </button>
+                             <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+                                Auto-extracts URLs
                             </div>
                         </div>
                         <textarea
-                            value={context.targetUrls}
-                            onChange={handleTargetUrlsChange}
-                            onPaste={handleTargetUrlsPaste}
-                            placeholder="Paste Bing/Google Search results source here (Ctrl+V)..."
-                            className="w-full h-48 p-4 bg-white border-2 border-violet-100 rounded-xl text-sm font-mono text-zinc-700 resize-y focus:outline-none focus:border-violet-500 shadow-sm placeholder:text-zinc-300"
+                            value={pastedResults}
+                            onChange={handlePasteResults}
+                            placeholder="Paste Google Search results here (Ctrl+V)..."
+                            className="w-full h-24 p-4 bg-white border-2 border-violet-100 rounded-xl text-sm font-mono text-zinc-700 resize-none focus:outline-none focus:border-violet-500 shadow-sm placeholder:text-zinc-300"
                         />
                     </div>
 
@@ -452,7 +320,7 @@ const InputField = ({ label, value, onChange, placeholder, type = "text", requir
     </div>
 );
 
-const TextAreaField = ({ label, value, onChange, placeholder, required = false, error, disabled = false, rows = 3, onPaste, rightAction }) => (
+const TextAreaField = ({ label, value, onChange, placeholder, required = false, error, disabled = false, rows = 3 }) => (
     <div className={`space-y-2 ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
         <div className="flex justify-between items-center pl-1">
             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
@@ -468,13 +336,7 @@ const TextAreaField = ({ label, value, onChange, placeholder, required = false, 
                 value={value}
                 onChange={onChange}
                 disabled={disabled}
-                onPaste={onPaste}
             />
-            {rightAction && (
-                <div className="absolute right-2 top-2 z-10">
-                    {rightAction}
-                </div>
-            )}
         </div>
     </div>
 );
@@ -890,52 +752,6 @@ const AutoMode = () => {
         return () => clearInterval(interval);
     }, [status]);
 
-    const handleSmartPaste = (e) => {
-        e.preventDefault();
-        const clipboardData = e.clipboardData || window.clipboardData;
-        const pastedText = clipboardData.getData('Text');
-
-        const cleanedUrls = cleanAndExtractUrls(pastedText, config.trustedDomains);
-
-        if (cleanedUrls.length > 0) {
-            setContext(prev => ({
-                ...prev,
-                targetUrls: cleanedUrls.join('\n')
-            }));
-            // Optional: Provide feedback
-            // setLogs(prev => [`[SMART_PASTE] Extracted ${cleanedUrls.length} valid URLs`, ...prev]);
-        } else {
-            // Fallback: If no URLs found (just text), paste normally?
-            // Or if user just wants to paste text, we should let them.
-            // If the cleaner returns empty but text was pasted, it might be just comments.
-            // Let's fallback to appending valid URLs or replacing if it's empty.
-            // Actually, if we preventDefault, we MUST handle the update.
-
-            // If cleaner found nothing, maybe it's just raw text user typed?
-            // But requirement is specifically about parsing HTML source.
-            // Let's assume if cleaner returns empty, we just paste raw text
-            // BUT usually we want the cleaning.
-
-            // Better UX: If result is empty but input wasn't, maybe just paste raw?
-            // "You want this "cleaning" process ... to happen automatically"
-
-            if (!pastedText.includes('http')) {
-                // Not a URL paste, just text
-                 setContext(prev => ({
-                    ...prev,
-                    targetUrls: pastedText
-                }));
-            } else {
-                // Had http but filtered out everything?
-                // Maybe inform user?
-                 setContext(prev => ({
-                    ...prev,
-                    targetUrls: "No valid educational URLs found in selection."
-                }));
-            }
-        }
-    };
-
     const handleFetchUrls = async () => {
         if (!context.grade || !context.subject || !context.topic) {
              setLogs(prev => [`[VALIDATION_ERROR] Grade, Subject, and Topic are required to fetch URLs`, ...prev]);
@@ -1154,24 +970,12 @@ const AutoMode = () => {
                                 <div className="animate-in slide-in-from-top-2">
                                     <TextAreaField
                                         label="Target URLs"
-                                        placeholder="Paste URLs (Smart Clean Enabled)..."
+                                        placeholder="Paste URLs here..."
                                         value={context.targetUrls}
                                         onChange={(e) => setContext({ ...context, targetUrls: e.target.value })}
                                         error={errors.targetUrls}
-                                        rows={8}
+                                        rows={2}
                                         disabled={false} // Always editable
-                                        onPaste={handleSmartPaste}
-                                        rightAction={
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(context.targetUrls);
-                                                }}
-                                                className="p-1.5 bg-zinc-100 hover:bg-violet-100 text-zinc-400 hover:text-violet-600 rounded-lg transition-colors"
-                                                title="Copy Clean URLs"
-                                            >
-                                                <Copy className="w-4 h-4" />
-                                            </button>
-                                        }
                                     />
                                 </div>
 
@@ -1235,9 +1039,6 @@ const AutoMode = () => {
                                     <InputField label="Report Keywords" placeholder="Focus terms..." value={context.keywordsReport} onChange={(e) => setContext({ ...context, keywordsReport: e.target.value })} />
                                 </div>
                                 <InputField label="Local File Path" placeholder="C:/Data/..." value={context.localFilePath} onChange={(e) => setContext({ ...context, localFilePath: e.target.value })} />
-                            </div>
-                            <div className="text-[10px] text-zinc-300 font-mono text-right pr-2 opacity-50">
-                                ver.06-02-26 11.56
                             </div>
                         </div>
 
