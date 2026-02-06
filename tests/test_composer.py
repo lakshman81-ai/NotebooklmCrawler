@@ -1,5 +1,5 @@
 import pytest
-from outputs.composer import compose_output
+from postprocess.composer import compose_output
 
 def test_compose_output_study_material():
     """Test study material composition."""
