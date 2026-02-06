@@ -10,6 +10,12 @@ export function useBackendStatus(intervalMs = 5000) {
     const [isOnline, setIsOnline] = useState(null); // null = initial check pending
 
     const checkStatus = useCallback(async () => {
+        // Optimization: In static hosting environments (GitHub Pages), backend is never available.
+        // Skip network request to avoid console errors.
+        if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
+            setIsOnline(false);
+            return;
+        }
         const status = await checkBackendHealth();
         setIsOnline(status);
     }, []);

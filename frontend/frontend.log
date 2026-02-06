@@ -10,3 +10,6 @@
 6:17:46 PM [vite] hmr update /src/components/Templates/TemplateSourcesPanel.jsx, /src/index.css
 6:36:45 PM [vite] hmr update /src/components/Templates/TemplatesTab.jsx, /src/index.css
 7:22:20 PM [vite] hmr update /src/components/Dashboard/AutoMode.jsx, /src/index.css
+7:58:40 PM [vite] hmr update /src/App.jsx, /src/index.css, /src/components/Config/ConfigTab.jsx, /src/components/Dashboard/AutoMode.jsx
+7:58:52 PM [vite] hmr update /src/components/Dashboard/AutoMode.jsx, /src/index.css
+7:58:57 PM [vite] hmr update /src/components/Config/ConfigTab.jsx, /src/index.css

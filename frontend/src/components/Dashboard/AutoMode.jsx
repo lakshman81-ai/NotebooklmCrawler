@@ -707,7 +707,8 @@ const AutoMode = () => {
     };
 
     const checkStatus = async () => {
-        if (!isOnline) return;
+        // Optimization: Skip polling in static mode
+        if (!isOnline || (typeof window !== 'undefined' && window.location.hostname.includes('github.io'))) return;
         try {
             const response = await fetch(`${API_BASE_URL}/api/logs`);
             const data = await response.json();

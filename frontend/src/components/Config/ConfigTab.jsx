@@ -124,8 +124,8 @@ const ConfigTab = () => {
                 setLoaded(true);
             }
 
-            // Also try backend for newest config if online
-            if (isOnline) {
+            // Also try backend for newest config if online and not static host
+            if (isOnline && !(typeof window !== 'undefined' && window.location.hostname.includes('github.io'))) {
                 try {
                     const response = await fetch(`${API_BASE_URL}/api/config/load`);
                     if (response.ok) {
@@ -192,7 +192,7 @@ const ConfigTab = () => {
 
         // Strategy 1: Try backend first
         let backendSuccess = false;
-        if (isOnline) {
+        if (isOnline && !(typeof window !== 'undefined' && window.location.hostname.includes('github.io'))) {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/config/save`, {
                     method: 'POST',
