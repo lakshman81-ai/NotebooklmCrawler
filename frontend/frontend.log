@@ -7,5 +7,9 @@
 
   ➜  Local:   http://localhost:5173/
   ➜  Network: use --host to expose
-6:17:46 PM [vite] hmr update /src/components/Templates/TemplateSourcesPanel.jsx, /src/index.css
-6:36:45 PM [vite] hmr update /src/components/Templates/TemplatesTab.jsx, /src/index.css
+12:39:30 PM [vite] hmr update /src/components/Templates/TemplatesTab.jsx, /src/index.css
+12:40:35 PM [vite] hmr update /src/components/Templates/TemplateSourcesPanel.jsx, /src/index.css
+5:24:19 PM [vite] hmr update /src/components/Dashboard/AutoMode.jsx, /src/index.css
+6:05:17 PM [vite] hmr update /src/components/Dashboard/AutoMode.jsx, /src/index.css
+6:44:33 PM [vite] hmr update /src/components/Config/ConfigTab.jsx, /src/index.css
+6:45:16 PM [vite] hmr update /src/components/Dashboard/AutoMode.jsx, /src/index.css

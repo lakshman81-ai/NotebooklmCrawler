@@ -321,6 +321,7 @@ class EduSearchPipeline:
         self,
         raw_results: list[dict],
         trusted_domains: list[str],
+        blocked_domains: list[str] | None = None,
         strict: bool = False,
     ) -> list[SearchResult]:
         """
@@ -332,12 +333,29 @@ class EduSearchPipeline:
         seen: set[str] = set()
         output: list[SearchResult] = []
 
+        # Prepare Blocklist
+        active_blocks = set(BLOCK_DOMAINS)
+        if blocked_domains:
+            active_blocks.update(d.lower() for d in blocked_domains if d)
+
+        # 1. Basic Filtering & Normalization
         for r in raw_results:
             url = r.get("url", "")
             if not url:
                 continue
-            norm = url.rstrip("/").lower().split("?")[0].split("#")[0]
-            if norm in seen:
+
+            # Remove tracking params but keep path
+            norm = url.split("?")[0].split("#")[0]
+
+            # Domain Check
+            try:
+                domain = urlparse(url).netloc.lower().replace("www.", "")
+                full_url_lower = url.lower()
+            except:
+                continue
+
+            # Blocklist Check
+            if any(bd in domain or bd in full_url_lower for bd in active_blocks):
                 continue
             seen.add(norm)
 
@@ -377,6 +395,7 @@ class EduSearchPipeline:
         subtopic: str | None = None,
         content_types: list[str] | None = None,
         extra_domains: list[str] | None = None,
+        blocked_domains: list[str] | None = None,
         region: str = "us-en",
         safesearch: str = "moderate",
         max_results: int = 10,
@@ -401,7 +420,7 @@ class EduSearchPipeline:
             # Note: region/safesearch are not currently passed to EducationalContentSearcher
             # as it relies on default browser settings or would need logic updates
             raw = self.fetch(query, max_results)
-            results = self.filter_results(raw, domains, strict_domain_filter)
+            results = self.filter_results(raw, domains, blocked_domains, strict_domain_filter)
         except Exception as e:
             logger.warning(f"Primary search failed: {e}")
             results = []
@@ -417,7 +436,7 @@ class EduSearchPipeline:
 
             try:
                 raw_fallback = self.fetch(fallback_query, max_results)
-                results = self.filter_results(raw_fallback, domains, strict=strict_domain_filter)
+                results = self.filter_results(raw_fallback, domains, blocked_domains, strict=strict_domain_filter)
 
                 if results:
                     logger.info(f"Fallback successful: {len(results)} results found.")

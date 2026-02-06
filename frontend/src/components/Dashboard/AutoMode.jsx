@@ -67,25 +67,155 @@ const buildEducationalQuery = (context, config) => {
     return parts.join(' ');
 };
 
+// --- URL Cleaning Logic ---
+const cleanAndExtractUrls = (text, trustedDomainsStr, blockedDomainsStr) => {
+    // 1. Initial Extraction
+    const urlRegex = /https?:\/\/[^\s"<>]+/g;
+    const rawMatches = text.match(urlRegex) || [];
+
+    // 2. Constants
+    const BLOCK_DOMAINS = [
+        'w3.org', 'schemas.live.com', 'microsoft.com',
+        'bing.com/search', 'bing.com/maps', 'bing.com/travel', 'bing.com/images', 'bing.com/videos', 'bing.com/ck',
+        'th.bing.com', 'r.bing.com', 'business.bing.com', 'go.microsoft.com', 'storage.live.com',
+        'google.com', 'google.co.in', 'googleadservices.com', 'encrypted', 'gstatic.com'
+    ];
+
+    const EXTENSION_BLOCK = ['.js', '.css', '.png', '.jpg', '.svg', '.gif', '.ico', '.woff', '.ttf'];
+
+    let decodedUrls = [];
+
+    // Parse User Blocks
+    const userBlocks = blockedDomainsStr
+        ? blockedDomainsStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+        : [];
+
+    // 3. Extraction & Decoding Loop
+    rawMatches.forEach(rawUrl => {
+        let cleanUrl = rawUrl;
+        cleanUrl = cleanUrl.replace(/[.,;)]+$/, '');
+        cleanUrl = cleanUrl.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+
+        const invalidCharIndex = cleanUrl.search(/["<>]/);
+        if (invalidCharIndex !== -1) {
+            cleanUrl = cleanUrl.substring(0, invalidCharIndex);
+        }
+
+        // Bing Redirect Logic
+        if (cleanUrl.includes('bing.com/ck/a')) {
+            try {
+                const urlObj = new URL(cleanUrl);
+                const uParam = urlObj.searchParams.get('u');
+                if (uParam) {
+                    let encoded = uParam.startsWith('a1') ? uParam.substring(2) : uParam;
+                    encoded = encoded.replace(/-/g, '+').replace(/_/g, '/');
+                    while (encoded.length % 4 !== 0) encoded += '=';
+                    cleanUrl = atob(encoded);
+                }
+            } catch (e) { return; }
+        }
+
+        // 4. Filtering Logic
+        try {
+            const urlObj = new URL(cleanUrl);
+            const hostname = urlObj.hostname.toLowerCase();
+            const pathname = urlObj.pathname.toLowerCase();
+            const fullStr = (hostname + pathname).toLowerCase();
+
+            // Block Lists (Bing & Google Specifics)
+            if (BLOCK_DOMAINS.some(d => fullStr.includes(d))) return;
+
+            // User Configured Blocks
+            if (userBlocks.some(d => fullStr.includes(d))) return;
+
+            if (hostname.includes('google') && !hostname.includes('googleapis')) return; // General Google Block
+            if (fullStr.includes('googleadservices')) return;
+            if (fullStr.includes('gstatic')) return;
+            if (fullStr.includes('encrypted')) return;
+
+            // Explicit Bing Block (catch-all)
+            if (hostname.includes('bing.com')) return;
+
+            // Extension Check
+            if (EXTENSION_BLOCK.some(ext => pathname.endsWith(ext))) return;
+
+            decodedUrls.push(cleanUrl);
+
+        } catch (e) { return; }
+    });
+
+    // 5. Parent/Child Deduplication Logic & Sorting
+    // If we have 'site.com' and 'site.com/page', keep only 'site.com/page'.
+
+    // First, unique list
+    decodedUrls = [...new Set(decodedUrls)];
+
+    const finalUrls = [];
+
+    for (let i = 0; i < decodedUrls.length; i++) {
+        const potentialParent = decodedUrls[i];
+        let isParent = false;
+
+        for (let j = 0; j < decodedUrls.length; j++) {
+            if (i === j) continue;
+            const potentialChild = decodedUrls[j];
+
+            // Normalize: remove trailing slash for comparison base
+            const pNorm = potentialParent.endsWith('/') ? potentialParent : potentialParent + '/';
+            const cNorm = potentialChild.endsWith('/') ? potentialChild : potentialChild + '/';
+
+            // If another URL starts with this one (is a child), then this one is a parent
+            if (cNorm.startsWith(pNorm) && cNorm !== pNorm) {
+                isParent = true;
+                break;
+            }
+        }
+
+        if (!isParent) {
+            finalUrls.push(potentialParent);
+        }
+    }
+
+    // 6. Limit to Top 15
+    return finalUrls.slice(0, 15);
+};
+
 // --- Guided Mode Popup Component ---
 const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) => {
     const [logs, setLogs] = useState([]);
     const [copiedOutput, setCopiedOutput] = useState(false);
     const [outputPromptText, setOutputPromptText] = useState('');
     const [inputPromptText, setInputPromptText] = useState('');
-    const [pastedResults, setPastedResults] = useState('');
 
-    const handlePasteResults = (e) => {
-        const text = e.target.value;
-        setPastedResults(text);
+    const handleTargetUrlsPaste = (e) => {
+        e.preventDefault();
+        const clipboardData = e.clipboardData || window.clipboardData;
+        const pastedText = clipboardData.getData('Text');
 
-        // Extract URLs
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        const matches = text.match(urlRegex);
-        if (matches && matches.length > 0 && onUpdateContext) {
-             const uniqueUrls = [...new Set(matches)];
-             // Update targetUrls in context (replacing existing to avoid duplicates/confusion)
-             onUpdateContext(prev => ({ ...prev, targetUrls: uniqueUrls.join('\n') }));
+        const cleanedUrls = cleanAndExtractUrls(pastedText, config.trustedDomains, config.blockedDomains);
+
+        if (cleanedUrls.length > 0 && onUpdateContext) {
+             onUpdateContext(prev => ({
+                 ...prev,
+                 targetUrls: cleanedUrls.join('\n')
+             }));
+        } else if (onUpdateContext) {
+             // Fallback: If no URLs extracted, just paste the text (maybe user is manually editing)
+             // But if it looks like HTML, we probably shouldn't.
+             if (!pastedText.includes('<html')) {
+                 onUpdateContext(prev => ({
+                     ...prev,
+                     targetUrls: pastedText
+                 }));
+             } else {
+                 alert("No valid educational URLs found in pasted content.");
+             }
+        }
+    };
+
+    const handleTargetUrlsChange = (e) => {
+        if (onUpdateContext) {
+            onUpdateContext(prev => ({ ...prev, targetUrls: e.target.value }));
         }
     };
 
@@ -752,6 +882,52 @@ const AutoMode = () => {
         return () => clearInterval(interval);
     }, [status]);
 
+    const handleSmartPaste = (e) => {
+        e.preventDefault();
+        const clipboardData = e.clipboardData || window.clipboardData;
+        const pastedText = clipboardData.getData('Text');
+
+        const cleanedUrls = cleanAndExtractUrls(pastedText, config.trustedDomains, config.blockedDomains);
+
+        if (cleanedUrls.length > 0) {
+            setContext(prev => ({
+                ...prev,
+                targetUrls: cleanedUrls.join('\n')
+            }));
+            // Optional: Provide feedback
+            // setLogs(prev => [`[SMART_PASTE] Extracted ${cleanedUrls.length} valid URLs`, ...prev]);
+        } else {
+            // Fallback: If no URLs found (just text), paste normally?
+            // Or if user just wants to paste text, we should let them.
+            // If the cleaner returns empty but text was pasted, it might be just comments.
+            // Let's fallback to appending valid URLs or replacing if it's empty.
+            // Actually, if we preventDefault, we MUST handle the update.
+
+            // If cleaner found nothing, maybe it's just raw text user typed?
+            // But requirement is specifically about parsing HTML source.
+            // Let's assume if cleaner returns empty, we just paste raw text
+            // BUT usually we want the cleaning.
+
+            // Better UX: If result is empty but input wasn't, maybe just paste raw?
+            // "You want this "cleaning" process ... to happen automatically"
+
+            if (!pastedText.includes('http')) {
+                // Not a URL paste, just text
+                 setContext(prev => ({
+                    ...prev,
+                    targetUrls: pastedText
+                }));
+            } else {
+                // Had http but filtered out everything?
+                // Maybe inform user?
+                 setContext(prev => ({
+                    ...prev,
+                    targetUrls: "No valid educational URLs found in selection."
+                }));
+            }
+        }
+    };
+
     const handleFetchUrls = async () => {
         if (!context.grade || !context.subject || !context.topic) {
              setLogs(prev => [`[VALIDATION_ERROR] Grade, Subject, and Topic are required to fetch URLs`, ...prev]);
@@ -781,7 +957,8 @@ const AutoMode = () => {
                     topic: context.topic,
                     subtopics: context.subtopics,
                     maxResults: 5,
-                    trustedDomains: context.useTrustedSites ? config.trustedDomains : null
+                    trustedDomains: context.useTrustedSites ? config.trustedDomains : null,
+                    blockedDomains: config.blockedDomains
                 })
             });
             const data = await response.json();
