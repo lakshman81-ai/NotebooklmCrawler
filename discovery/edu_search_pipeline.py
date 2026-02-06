@@ -2,7 +2,8 @@
 """
 edu_search.py — Educational Content Retrieval Engine v2
 
-Programmatic DuckDuckGo search pipeline for K-12 educational content.
+Programmatic Bing search pipeline for K-12 educational content.
+Replaces DuckDuckGo with Firefox + Bing via Playwright.
 
 Usage:
     from discovery.edu_search_pipeline import EduSearchPipeline, setup_logger
@@ -26,12 +27,7 @@ import json
 import sys
 from urllib.parse import urlparse
 from dataclasses import dataclass, field
-
-try:
-    from duckduckgo_search import DDGS
-except ImportError:
-    from ddgs import DDGS
-
+from discovery.bing_search import EducationalContentSearcher
 
 # ═══════════════════════════════════════════════════════
 #  LOGGING
@@ -75,14 +71,14 @@ logger = logging.getLogger("edu_search")
 # ═══════════════════════════════════════════════════════
 
 CONTENT_TYPE_KEYWORDS: dict[str, list[str]] = {
-    "concept_explainer": ["+tutorial", "+lesson", "+explained", "+introduction"],
-    "reasoning":         ["+derivation", "+proof", "+worked-example", "+step-by-step"],
-    "material_visual":   ["+flowchart", "+diagram", "+infographic", "+chart"],
-    "material_equation": ["+equation", "+formula", "+calculation"],
-    "practice":          ["+worksheet", "+exercise", "+quiz", "+practice-problems"],
-    "video":             ["+video", "+lecture"],
-    "simulation":        ["+simulation", "+interactive", "+virtual-lab"],
-    "printable":         ["filetype:pdf", "+worksheet", "+printable"],
+    "concept_explainer": ["tutorial", "lesson", "explained", "introduction"],
+    "reasoning":         ["derivation", "proof", "worked-example", "step-by-step"],
+    "material_visual":   ["flowchart", "diagram", "infographic", "chart"],
+    "material_equation": ["equation", "formula", "calculation"],
+    "practice":          ["worksheet", "exercise", "quiz", "practice-problems"],
+    "video":             ["video", "lecture"],
+    "simulation":        ["simulation", "interactive", "virtual-lab"],
+    "printable":         ["filetype:pdf", "worksheet", "printable"],
 }
 
 GRADE_EXCLUSIONS: dict[str, str] = {
@@ -132,7 +128,7 @@ INTER_REQUEST_DELAY = 1.5
 #  EXCEPTIONS
 # ═══════════════════════════════════════════════════════
 
-class DDGSearchError(Exception):
+class SearchError(Exception):
     """All retry attempts and backend fallbacks exhausted."""
     pass
 
@@ -162,18 +158,12 @@ class SearchResult:
 
 class EduSearchPipeline:
     """
-    End-to-end educational content retrieval pipeline.
+    End-to-end educational content retrieval pipeline using Bing + Firefox.
 
     Design:
         Each step (resolve → build → fetch → filter) is a public method
         that can be called independently. The search() method orchestrates
         them. This lets you swap or skip steps as needed.
-
-    Guiding principles:
-        - Domain filtering is a ranking signal by default, not a hard gate.
-        - Query construction prefers precision (exact quotes) over recall.
-        - Rate-limit handling is built in; callers don't need to manage it.
-        - All decisions are logged so you can debug without re-running.
     """
 
     def __init__(
@@ -186,6 +176,13 @@ class EduSearchPipeline:
         self.band_domains = band_domains or TRUSTED_DOMAINS_BY_BAND
         self.content_keywords = content_keywords or CONTENT_TYPE_KEYWORDS
 
+        # Initialize the Bing searcher
+        self.searcher = EducationalContentSearcher(
+            headless=True,
+            config_file='outputs/search_config.json',
+            cache_dir='outputs/search_cache'
+        )
+
     # ── Helpers ──────────────────────────────────────
 
     @staticmethod
@@ -196,7 +193,7 @@ class EduSearchPipeline:
 
     @staticmethod
     def _build_site_filter(domains: list[str]) -> str:
-        """CRITICAL: uppercase OR, parenthesized, no comma syntax."""
+        """Bing syntax: (site:a OR site:b OR ...)"""
         if not domains:      return ""
         if len(domains) == 1: return f"site:{domains[0]}"
         return "(" + " OR ".join(f"site:{d}" for d in domains) + ")"
@@ -259,11 +256,11 @@ class EduSearchPipeline:
         domains: list[str] | None = None,
     ) -> str:
         """
-        Construct optimized DDG query string.
+        Construct optimized Bing query string.
 
-        Structure (left-to-right, DDG weights earlier terms higher):
+        Structure:
           "Grade N" "Subject" "Topic" ["Subtopic"]
-          +keyword1 +keyword2
+          keyword1 keyword2
           -exclusion1 -exclusion2
           (site:a OR site:b OR ...)
         """
@@ -293,15 +290,7 @@ class EduSearchPipeline:
 
         query = " ".join(parts)
 
-        # Sanity check
-        term_count = len(query.split())
-        if term_count > 30:
-            logger.warning(
-                f"Query length {term_count} terms (>30). "
-                f"DDG may truncate. Consider reducing scope."
-            )
-
-        logger.debug(f"Built query ({term_count} terms): {query}")
+        logger.debug(f"Built query: {query}")
         return query
 
     # ── Step 3: Fetch ────────────────────────────────
@@ -309,80 +298,22 @@ class EduSearchPipeline:
     def fetch(
         self,
         query: str,
-        region: str = "us-en",
-        safesearch: str = "moderate",
         max_results: int = 10,
-        timelimit: str | None = None,
     ) -> list[dict]:
         """
-        Execute DDG search with backend rotation and exponential backoff.
+        Execute Bing search using EducationalContentSearcher.
 
         Returns raw result dicts with keys: title, url, snippet.
-        Raises DDGSearchError if all backends fail.
         """
-        backends = ["auto", "lite", "html"]
-        last_error = None
-        start_time = time.time()
-
-        for backend in backends:
-            for attempt in range(MAX_RETRIES):
-                try:
-                    logger.debug(
-                        f"Fetch attempt: backend={backend}, try={attempt+1}"
-                    )
-                    results = []
-                    with DDGS() as ddgs:
-                        for r in ddgs.text(
-                            query,
-                            region=region,
-                            safesearch=safesearch,
-                            timelimit=timelimit,
-                            max_results=max_results,
-                            backend=backend,
-                        ):
-                            results.append({
-                                "title": r.get("title", ""),
-                                "url": r.get("href", ""),
-                                "snippet": r.get("body", ""),
-                            })
-
-                    elapsed = time.time() - start_time
-                    logger.info(
-                        f"Fetched {len(results)} results in {elapsed:.1f}s "
-                        f"(backend={backend})"
-                    )
-                    return results
-
-                except Exception as e:
-                    last_error = e
-                    err = str(e).lower()
-                    is_rate_limit = any(
-                        s in err for s in
-                        ["418", "202", "ratelimit", "rate limit", "too many"]
-                    )
-                    if is_rate_limit:
-                        delay = BASE_DELAY * (2 ** attempt) + random.uniform(0, 1)
-                        logger.warning(
-                            f"Rate limited: backend={backend}, "
-                            f"attempt {attempt+1}/{MAX_RETRIES}. "
-                            f"Backoff {delay:.1f}s. Error: {e}"
-                        )
-                        time.sleep(delay)
-                    else:
-                        logger.warning(
-                            f"Error (non-rate-limit): backend={backend}. "
-                            f"Error: {e}. Trying next backend."
-                        )
-                        break
-
-            logger.info(f"Backend '{backend}' exhausted.")
-
-        elapsed = time.time() - start_time
-        logger.error(
-            f"ALL BACKENDS FAILED after {elapsed:.1f}s. "
-            f"Query: {query[:100]}. Last error: {last_error}"
-        )
-        raise DDGSearchError(f"All backends exhausted. Last error: {last_error}")
+        try:
+            self.searcher.start()
+            results = self.searcher.search_bing(query, count=max_results)
+            return results
+        except Exception as e:
+            logger.error(f"Bing search failed: {e}")
+            raise SearchError(f"Bing search failed: {e}")
+        finally:
+            self.searcher.close()
 
     # ── Step 4: Filter ───────────────────────────────
 
@@ -422,7 +353,7 @@ class EduSearchPipeline:
             output.append(SearchResult(
                 title=r.get("title", ""),
                 url=url,
-                snippet=r.get("snippet", r.get("body", "")),
+                snippet=r.get("snippet", ""),
                 domain=domain,
                 is_trusted=is_trusted,
             ))
@@ -467,7 +398,9 @@ class EduSearchPipeline:
         )
 
         try:
-            raw = self.fetch(query, region, safesearch, max_results)
+            # Note: region/safesearch are not currently passed to EducationalContentSearcher
+            # as it relies on default browser settings or would need logic updates
+            raw = self.fetch(query, max_results)
             results = self.filter_results(raw, domains, strict_domain_filter)
         except Exception as e:
             logger.warning(f"Primary search failed: {e}")
@@ -483,10 +416,7 @@ class EduSearchPipeline:
             )
 
             try:
-                raw_fallback = self.fetch(fallback_query, region, safesearch, max_results)
-                # Filter is still applied for ranking, but we might want to be looser
-                # If strict_domain_filter was True, we probably shouldn't return untrusted results,
-                # BUT if it's False (default), we just want *something*.
+                raw_fallback = self.fetch(fallback_query, max_results)
                 results = self.filter_results(raw_fallback, domains, strict=strict_domain_filter)
 
                 if results:
@@ -511,7 +441,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Educational Content Search via DuckDuckGo"
+        description="Educational Content Search via Bing (Firefox+Playwright)"
     )
     parser.add_argument("--grade", type=int, required=True)
     parser.add_argument("--subject", type=str, required=True)
