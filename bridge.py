@@ -374,18 +374,30 @@ async def read_template_file(request: TemplateFileRequest):
 
 @app.get("/api/proxy/headers")
 async def proxy_headers(url: str):
-    """Fetch CSV headers from an external URL (e.g. GitHub raw)"""
+    """Fetch CSV headers and structure from an external URL (e.g. GitHub raw)"""
     # SSRF Protection: Whitelist allowed domains
     allowed_domains = ["raw.githubusercontent.com", "github.com", "gist.githubusercontent.com"]
     from urllib.parse import urlparse
     parsed_url = urlparse(url)
     if parsed_url.netloc not in allowed_domains:
-        raise HTTPException(status_code=403, detail="Domain not allowed for proxy")
+        raise HTTPException(status_code=403, detail="Domain not allowed for proxy. Only GitHub URLs are allowed.")
 
     try:
-        # Use pandas to read just the headers
-        df = pd.read_csv(url, nrows=0)
-        return {"headers": df.columns.tolist()}
+        # Use pandas to read sample data
+        df = pd.read_csv(url, nrows=5)
+
+        # Create a text-based structure preview for the UI
+        structure_preview = f"Source URL: {url}\n"
+        structure_preview += f"Detected Columns ({len(df.columns)}): {', '.join(df.columns)}\n\n"
+        structure_preview += "--- Sample Data (First 5 Rows) ---\n"
+        structure_preview += df.to_csv(index=False)
+
+        return {
+            "success": True,
+            "headers": df.columns.tolist(),
+            "structure": structure_preview,
+            "sampleData": df.fillna("").to_dict(orient='records')
+        }
     except Exception as e:
         # Fallback for non-CSV or errors
         raise HTTPException(status_code=500, detail=f"Failed to fetch headers: {str(e)}")
