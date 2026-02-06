@@ -185,22 +185,33 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
                                 Step 1: Input Source Context (Search Query)
                             </label>
                             {context.searchWeb && (
-                                <button
-                                    onClick={() => {
-                                        const url = context.intelligenceSource === 'DDG'
-                                            ? `https://duckduckgo.com/?q=${encodeURIComponent(inputPromptText)}`
-                                            : `https://www.google.com/search?q=${encodeURIComponent(inputPromptText)}`;
-                                        window.open(url, '_blank');
-                                    }}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                        context.intelligenceSource === 'DDG'
-                                        ? 'bg-orange-50 text-orange-600 hover:bg-orange-100'
-                                        : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                                    }`}
-                                >
-                                    {context.intelligenceSource === 'DDG' ? <Search className="w-3 h-3" /> : <Globe className="w-3 h-3" />}
-                                    {context.intelligenceSource === 'DDG' ? 'Open DuckDuckGo' : 'Open Google Search'}
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => {
+                                            const url = context.intelligenceSource === 'DDG'
+                                                ? `https://duckduckgo.com/?q=${encodeURIComponent(inputPromptText)}`
+                                                : `https://www.google.com/search?q=${encodeURIComponent(inputPromptText)}`;
+                                            window.open(url, '_blank');
+                                        }}
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                            context.intelligenceSource === 'DDG'
+                                            ? 'bg-orange-50 text-orange-600 hover:bg-orange-100'
+                                            : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                        }`}
+                                    >
+                                        {context.intelligenceSource === 'DDG' ? <Search className="w-3 h-3" /> : <Globe className="w-3 h-3" />}
+                                        {context.intelligenceSource === 'DDG' ? 'Open DuckDuckGo' : 'Open Google Search'}
+                                    </button>
+                                    {context.intelligenceSource === 'DDG' && (
+                                        <button
+                                            onClick={() => window.open(`https://duckduckgo.com/?q=${encodeURIComponent(inputPromptText)}&ia=chat`, '_blank')}
+                                            className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 text-violet-600 hover:bg-violet-100 rounded-lg text-xs font-bold transition-all"
+                                        >
+                                            <Sparkles className="w-3 h-3" />
+                                            Ask Duck.ai
+                                        </button>
+                                    )}
+                                </div>
                             )}
                         </div>
                         <div className="relative group">
@@ -331,7 +342,7 @@ const TextAreaField = ({ label, value, onChange, placeholder, required = false, 
 );
 
 // --- Modern Intelligence Source Selector ---
-const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onToggleSearch, isOffline, useTrustedSites, onToggleTrustedSites }) => {
+const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onToggleSearch, isOffline, useTrustedSites, onToggleTrustedSites, onFetch, isFetching }) => {
     const crawlersDisabled = searchWeb || isOffline; // Disable crawlers if offline
     const fetchersDisabled = !searchWeb;
 
@@ -429,6 +440,16 @@ const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onTogg
                             disabled={fetchersDisabled}
                             icon={Search}
                         />
+                        {searchWeb && value === 'DDG' && (
+                            <button
+                                onClick={onFetch}
+                                disabled={isFetching}
+                                className="w-full mt-2 px-3 py-2 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-sm animate-in fade-in slide-in-from-top-1"
+                            >
+                                {isFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                                {isFetching ? 'Fetching...' : 'Fetch URLs'}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -901,6 +922,8 @@ const AutoMode = () => {
                                 isOffline={isOffline}
                                 useTrustedSites={context.useTrustedSites}
                                 onToggleTrustedSites={() => setContext({ ...context, useTrustedSites: !context.useTrustedSites })}
+                                onFetch={handleFetchUrls}
+                                isFetching={isFetching}
                             />
 
                             {/* Research Foundation */}
@@ -977,19 +1000,6 @@ const AutoMode = () => {
                                         onChange={(e) => setContext({ ...context, subtopics: e.target.value })}
                                         disabled={!context.searchWeb}
                                     />
-
-                                    {context.searchWeb && context.intelligenceSource === 'DDG' && (
-                                        <div className="flex justify-end animate-in fade-in slide-in-from-top-2">
-                                            <button
-                                                onClick={handleFetchUrls}
-                                                disabled={isFetching}
-                                                className="px-4 py-2 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-sm"
-                                            >
-                                                {isFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-                                                Fetch URLs Programmatically
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
 
