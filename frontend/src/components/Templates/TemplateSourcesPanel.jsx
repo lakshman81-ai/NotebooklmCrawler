@@ -1,40 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { FolderOpen, ChevronDown, ChevronRight, File, RefreshCw } from 'lucide-react';
+import { FolderOpen, ChevronDown, ChevronRight, File, RefreshCw, Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '../../services/apiConfig';
 
 /**
  * Template file structure (Nested)
+ * Now loaded dynamically from templates.json or via API
  */
-const TEMPLATE_SOURCES = {
-    Kani: {
-        GameApp: {
-            LearningGalaxy: [
-                { id: 'kani-gameapp-lg-english', filename: 'english.csv', path: 'Kani/GameApp/LearningGalaxy/english.csv' },
-                { id: 'kani-gameapp-lg-math', filename: 'math.csv', path: 'Kani/GameApp/LearningGalaxy/math.csv' },
-            ]
-        },
-        Worksheet: {
-            Verbs: [
-                { id: 'kani-worksheet-verbs', filename: 'questions.csv', path: 'Kani/Worksheet/Verbs/questions.csv' }
-            ]
-        }
-    },
-    Harshitha: {
-        Questionnaire: [
-            { id: 'harshitha-questionnaire-index', filename: 'master_index.csv', path: 'Harshitha/Questionnaire/master_index.csv' }
-        ],
-        Handout: [
-            { id: 'harshitha-handout-index', filename: 'master_index.csv', path: 'Harshitha/Handout/master_index.csv' }
-        ],
-        StudyGuide: [
-            { id: 'harshitha-studyguide-index', filename: 'master_index.csv', path: 'Harshitha/StudyGuide/master_index.csv' }
-        ]
-    }
-};
+let TEMPLATE_SOURCES = {};
 
 /**
  * Recursive Tree Component
  */
-const FileTree = ({ data, parentPath = '', level = 0, selectedSources, onSelectionChange, expanded, toggleExpand, previewId, onFileClick }) => {
+const FileTree = ({ data, parentPath = '', level = 0, selectedSources, onSelectionChange, expanded, toggleExpand }) => {
     // If array, it's a list of files (Leaf Nodes)
     if (Array.isArray(data)) {
         return (
@@ -45,8 +22,6 @@ const FileTree = ({ data, parentPath = '', level = 0, selectedSources, onSelecti
                         file={file}
                         selected={selectedSources.has(file.id)}
                         onSelect={onSelectionChange}
-                        isPreview={previewId === file.id}
-                        onPreviewClick={() => onFileClick(file.id)}
                     />
                 ))}
             </div>
@@ -109,8 +84,6 @@ const FileTree = ({ data, parentPath = '', level = 0, selectedSources, onSelecti
                                 onSelectionChange={onSelectionChange}
                                 expanded={expanded}
                                 toggleExpand={toggleExpand}
-                                previewId={previewId}
-                                onFileClick={onFileClick}
                             />
                         )}
                     </div>
@@ -120,25 +93,63 @@ const FileTree = ({ data, parentPath = '', level = 0, selectedSources, onSelecti
     );
 };
 
-const TemplateSourcesPanel = ({ selectedSources, selectedSourceData, onSelectionChange, onUpdateStructure }) => {
+const TemplateSourcesPanel = ({ selectedSources, onSelectionChange }) => {
+    // State for template data
+    const [templateData, setTemplateData] = useState({});
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
     // Initial State: Expand top-level folders
     const [expandedSections, setExpandedSections] = useState(new Set(['Kani', 'Harshitha']));
-    const [previewId, setPreviewId] = useState(null);
-    const [previewText, setPreviewText] = useState('');
 
-    // Update preview text when file selection/data changes
+    // Load templates on mount (Cached)
     useEffect(() => {
-        if (previewId && selectedSourceData) {
-            const data = selectedSourceData.get(previewId);
-            if (data && data.data && data.data.columns) {
-                setPreviewText(data.data.columns.join(', '));
-            } else {
-                setPreviewText('');
+        const loadCachedTemplates = async () => {
+            try {
+                // Try fetching the cached file from public directory
+                // Note: In Vite dev, public/ is at root. In prod, it's at root.
+                // We use a timestamp to avoid browser caching of the file itself if needed,
+                // but user asked for "do once", so maybe standard caching is fine.
+                // However, "fetch only if user clicks refresh" implies we trust the file until refreshed.
+                const response = await fetch('/templates.json');
+                if (response.ok) {
+                    const data = await response.json();
+                    setTemplateData(data);
+                    TEMPLATE_SOURCES = data; // Update export if needed
+                    // Auto-expand top level keys
+                    setExpandedSections(new Set(Object.keys(data)));
+                } else {
+                    // Cache missing, trigger initial refresh
+                    console.log("Template cache missing, triggering refresh...");
+                    handleRefresh();
+                }
+            } catch (err) {
+                console.warn("Failed to load template cache", err);
+                // Fallback to initial refresh
+                handleRefresh();
             }
-        } else {
-            setPreviewText('');
+        };
+        loadCachedTemplates();
+    }, []);
+
+    const handleRefresh = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/templates/refresh`, { method: 'POST' });
+            if (!res.ok) throw new Error("Failed to refresh templates");
+
+            const result = await res.json();
+            setTemplateData(result.tree);
+            TEMPLATE_SOURCES = result.tree;
+            setExpandedSections(new Set(Object.keys(result.tree)));
+        } catch (e) {
+            console.error("Template refresh error:", e);
+            setError("Failed to load templates. Is backend running?");
+        } finally {
+            setLoading(false);
         }
-    }, [previewId, selectedSourceData]);
+    };
 
     const toggleExpand = (path) => {
         setExpandedSections(prev => {
@@ -152,65 +163,53 @@ const TemplateSourcesPanel = ({ selectedSources, selectedSourceData, onSelection
         });
     };
 
-    const handleUpdate = () => {
-        if (previewId && onUpdateStructure) {
-            onUpdateStructure(previewId, previewText);
-        }
-    };
-
     return (
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 space-y-5 h-full flex flex-col">
             {/* Header */}
-            <div className="flex items-center gap-3 pb-4 border-b border-slate-100 flex-shrink-0">
-                <div className="p-2 bg-indigo-50 rounded-xl">
-                    <FolderOpen className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div>
-                    <h3 className="text-base font-black text-slate-800">Template Sources</h3>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                        Select files to generate prompts
-                    </p>
-                </div>
-            </div>
-
-            {/* File Tree - Scrollable Area */}
-            <div className="space-y-2 overflow-y-auto custom-scrollbar pr-2 flex-grow min-h-[200px]">
-                <FileTree
-                    data={TEMPLATE_SOURCES}
-                    selectedSources={selectedSources}
-                    onSelectionChange={onSelectionChange}
-                    expanded={expandedSections}
-                    toggleExpand={toggleExpand}
-                    previewId={previewId}
-                    onFileClick={setPreviewId}
-                />
-            </div>
-
-            {/* Structure Preview (Editable) - Only shows when a file is active and selected */}
-            {previewId && selectedSources.has(previewId) && (
-                 <div className="pt-4 border-t border-slate-100 flex-shrink-0 animate-in fade-in slide-in-from-bottom-2">
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                             <label className="text-[10px] font-bold text-slate-400 uppercase">Structure Preview (Editable)</label>
-                             <button
-                                onClick={handleUpdate}
-                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded transition-colors"
-                             >
-                                <RefreshCw className="w-3 h-3" /> Update
-                             </button>
-                        </div>
-                        <textarea
-                            value={previewText}
-                            onChange={(e) => setPreviewText(e.target.value)}
-                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-mono text-slate-600 focus:outline-none focus:border-indigo-500 resize-none h-[100px]"
-                            placeholder="Header1, Header2, Header3..."
-                        />
-                         <p className="text-[9px] text-slate-400 italic text-center">
-                            Click 'Update' to refresh the generated prompt
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-50 rounded-xl">
+                        <FolderOpen className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-base font-black text-slate-800">Template Sources</h3>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                            Select files to generate prompts
                         </p>
                     </div>
-                 </div>
+                </div>
+                <button
+                    onClick={handleRefresh}
+                    disabled={loading}
+                    className="p-2 hover:bg-slate-100 rounded-full transition-colors disabled:opacity-50 text-slate-500 hover:text-indigo-600"
+                    title="Refresh Templates"
+                >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                </button>
+            </div>
+
+            {error && (
+                <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg">
+                    {error}
+                </div>
             )}
+
+            {/* File Tree - Scrollable Area */}
+            <div className="space-y-2 overflow-y-auto custom-scrollbar pr-2 flex-grow min-h-[300px]">
+                {Object.keys(templateData).length === 0 && !loading && !error ? (
+                    <div className="text-center py-10 text-slate-400 text-sm">
+                        No templates found. <br/> Click refresh to scan.
+                    </div>
+                ) : (
+                    <FileTree
+                        data={templateData}
+                        selectedSources={selectedSources}
+                        onSelectionChange={onSelectionChange}
+                        expanded={expandedSections}
+                        toggleExpand={toggleExpand}
+                    />
+                )}
+            </div>
 
             {/* Footer Stats */}
             <div className="pt-4 border-t border-slate-100 flex-shrink-0">
@@ -225,30 +224,23 @@ const TemplateSourcesPanel = ({ selectedSources, selectedSourceData, onSelection
 /**
  * Individual file checkbox component
  */
-const FileCheckbox = ({ file, selected, onSelect, isPreview, onPreviewClick }) => {
+const FileCheckbox = ({ file, selected, onSelect }) => {
     return (
-        <div
-            onClick={onPreviewClick}
-            className={`flex items-center gap-2 p-2 pl-4 rounded-lg cursor-pointer transition-all ${
-                isPreview ? 'bg-indigo-100 border border-indigo-200' :
-                selected ? 'bg-indigo-50 border border-indigo-200' :
-                'hover:bg-slate-50 border border-transparent'
-            }`}
-        >
+        <label className={`flex items-center gap-2 p-2 pl-4 rounded-lg cursor-pointer transition-all ${selected
+            ? 'bg-indigo-50 border border-indigo-200'
+            : 'hover:bg-slate-50 border border-transparent'
+            }`}>
             <input
                 type="checkbox"
                 checked={selected}
-                onChange={(e) => {
-                    e.stopPropagation(); // Prevent preview click when just checking
-                    onSelect(file.id, e.target.checked, file);
-                }}
+                onChange={(e) => onSelect(file.id, e.target.checked, file)}
                 className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
             />
             <File className={`w-3.5 h-3.5 ${selected ? 'text-indigo-600' : 'text-slate-400'}`} />
             <span className={`text-xs font-medium ${selected ? 'text-indigo-700 font-bold' : 'text-slate-600'}`}>
                 {file.filename}
             </span>
-        </div>
+        </label>
     );
 };
 

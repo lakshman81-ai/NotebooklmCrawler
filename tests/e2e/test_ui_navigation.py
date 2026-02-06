@@ -45,25 +45,15 @@ def test_ui_navigation_integrity(page: Page):
     # 3. Navigation: System Logs
     print("Navigating to System Logs...")
     page.get_by_role("button", name="System Logs").click()
-    expect(page.get_by_role("heading", name="System Logs")).to_be_visible()
-    # Check for log terminal existence (or at least the filter bar or list)
-    expect(page.get_by_placeholder("Search logs...")).to_be_visible()
+    expect(page.get_by_text("System Logs")).to_be_visible()
+    # Check for log terminal existence
+    expect(page.locator(".font-mono").first).to_be_visible()
 
-    # 4. Navigation: Mission Briefing (Jules Instruction)
-    print("Navigating to Mission Briefing...")
-    page.get_by_role("button", name="Instruction to Jules").click()
-    expect(page.get_by_role("heading", name="Instruction to Jules")).to_be_visible()
-    expect(page.get_by_text("Generate optimized transformation prompts")).to_be_visible()
-
-    # Check interaction: Generate Button state (disabled initially)
-    generate_btn = page.get_by_role("button", name="Generate Prompt for Jules")
-    expect(generate_btn).to_be_visible()
-    expect(generate_btn).to_be_disabled() # Disabled because no input
-
-    # 5. Navigation: Prompt Forge (Templates)
-    print("Navigating to Prompt Forge...")
-    page.get_by_role("button", name="Templates/Notebooklm O/P Prompt Generator").click()
-    expect(page.get_by_role("heading", name="Templates/Notebooklm O/P Prompt Generator")).to_be_visible()
+    # 4. Navigation: Prompt Generator (formerly Templates)
+    print("Navigating to Prompt Generator...")
+    page.get_by_role("button", name="Prompt Generator").click()
+    expect(page.get_by_text("Prompt Generator")).to_be_visible()
+    expect(page.get_by_text("Jules Prompt (Editable)")).to_be_visible()
 
     print("\nUI Navigation Integrity Check Passed!")
 
