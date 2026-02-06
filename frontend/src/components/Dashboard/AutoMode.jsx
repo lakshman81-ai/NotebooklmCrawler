@@ -634,6 +634,16 @@ const AutoMode = () => {
 
     useEffect(() => {
         const loadConfig = async () => {
+            // 1. Try LocalStorage first (Fast/Offline)
+            try {
+                const localData = localStorage.getItem('orchestration_cockpit_config');
+                if (localData) {
+                    const parsed = JSON.parse(localData);
+                    setConfig(prev => ({ ...prev, ...parsed }));
+                }
+            } catch (e) { console.error("Local config load error", e); }
+
+            // 2. Try Backend if online
             if (!isOnline) return;
             try {
                 const response = await fetch(`${API_BASE_URL}/api/config/load`);
@@ -643,7 +653,7 @@ const AutoMode = () => {
                 }
             } catch (e) { console.log('Config load skipped'); }
         };
-        if (isOnline) loadConfig();
+        loadConfig();
     }, [isOnline]);
 
     // useEffect(() => {
