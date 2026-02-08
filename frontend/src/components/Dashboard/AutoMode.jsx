@@ -186,36 +186,21 @@ const GuidedModePopup = ({ isOpen, onClose, context, config, onUpdateContext }) 
     const [copiedOutput, setCopiedOutput] = useState(false);
     const [outputPromptText, setOutputPromptText] = useState('');
     const [inputPromptText, setInputPromptText] = useState('');
+    const [pastedResults, setPastedResults] = useState('');
 
-    const handleTargetUrlsPaste = (e) => {
-        e.preventDefault();
-        const clipboardData = e.clipboardData || window.clipboardData;
-        const pastedText = clipboardData.getData('Text');
+    const handlePasteResults = (e) => {
+        const value = e.target.value;
+        setPastedResults(value);
 
-        const cleanedUrls = cleanAndExtractUrls(pastedText, config.trustedDomains, config.blockedDomains);
-
-        if (cleanedUrls.length > 0 && onUpdateContext) {
-             onUpdateContext(prev => ({
-                 ...prev,
-                 targetUrls: cleanedUrls.join('\n')
-             }));
-        } else if (onUpdateContext) {
-             // Fallback: If no URLs extracted, just paste the text (maybe user is manually editing)
-             // But if it looks like HTML, we probably shouldn't.
-             if (!pastedText.includes('<html')) {
-                 onUpdateContext(prev => ({
-                     ...prev,
-                     targetUrls: pastedText
-                 }));
-             } else {
-                 alert("No valid educational URLs found in pasted content.");
-             }
-        }
-    };
-
-    const handleTargetUrlsChange = (e) => {
-        if (onUpdateContext) {
-            onUpdateContext(prev => ({ ...prev, targetUrls: e.target.value }));
+        // Auto-extract if content looks like search results or HTML
+        if (value.length > 50) {
+            const cleanedUrls = cleanAndExtractUrls(value, config.trustedDomains, config.blockedDomains);
+            if (cleanedUrls.length > 0 && onUpdateContext) {
+                onUpdateContext(prev => ({
+                    ...prev,
+                    targetUrls: cleanedUrls.join('\n')
+                }));
+            }
         }
     };
 

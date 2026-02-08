@@ -106,12 +106,8 @@ const TemplateSourcesPanel = ({ selectedSources, onSelectionChange }) => {
     useEffect(() => {
         const loadCachedTemplates = async () => {
             try {
-                // Try fetching the cached file from public directory
-                // Note: In Vite dev, public/ is at root. In prod, it's at root.
-                // We use a timestamp to avoid browser caching of the file itself if needed,
-                // but user asked for "do once", so maybe standard caching is fine.
-                // However, "fetch only if user clicks refresh" implies we trust the file until refreshed.
-                const response = await fetch('/templates.json');
+                // Try fetching from relative path for better compatibility (e.g. GitHub Pages)
+                const response = await fetch('./templates.json');
                 if (response.ok) {
                     const data = await response.json();
                     setTemplateData(data);
@@ -119,12 +115,11 @@ const TemplateSourcesPanel = ({ selectedSources, onSelectionChange }) => {
                     // Auto-expand top level keys
                     setExpandedSections(new Set(Object.keys(data)));
                 } else {
-                    // Cache missing, trigger initial refresh
-                    console.log("Template cache missing, triggering refresh...");
+                    console.warn("Template cache missing (404), attempting backend refresh...");
                     handleRefresh();
                 }
             } catch (err) {
-                console.warn("Failed to load template cache", err);
+                console.warn("Failed to load template cache (Network/Parse Error)", err);
                 // Fallback to initial refresh
                 handleRefresh();
             }
@@ -137,7 +132,7 @@ const TemplateSourcesPanel = ({ selectedSources, onSelectionChange }) => {
         setError(null);
         try {
             const res = await fetch(`${API_BASE_URL}/api/templates/refresh`, { method: 'POST' });
-            if (!res.ok) throw new Error("Failed to refresh templates");
+            if (!res.ok) throw new Error(`Backend error: ${res.status}`);
 
             const result = await res.json();
             setTemplateData(result.tree);
@@ -145,7 +140,7 @@ const TemplateSourcesPanel = ({ selectedSources, onSelectionChange }) => {
             setExpandedSections(new Set(Object.keys(result.tree)));
         } catch (e) {
             console.error("Template refresh error:", e);
-            setError("Failed to load templates. Is backend running?");
+            setError("Templates unavailable. (Offline Mode: Ensure templates.json is present)");
         } finally {
             setLoading(false);
         }
