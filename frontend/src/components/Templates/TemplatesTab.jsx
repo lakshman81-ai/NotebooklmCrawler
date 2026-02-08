@@ -396,7 +396,7 @@ const TemplatesTab = () => {
         setReportBasis(basis);
         setInputPrompts(inputPrompts);
         setOutputPrompt(outputPrompt);
-        setJulesPrompt(generateJulesPrompt(inputPrompts));
+        setJulesPrompt(generateJulesPrompt(inputPrompts, dashboardSettings));
         setErrorMessage(null);
 
         // Scroll to report

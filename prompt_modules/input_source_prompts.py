@@ -263,17 +263,23 @@ class InputSourcePromptBuilder:
         """
         domain = self._extract_domain(url)
 
-        prompt = f"""Analyze this educational content from {domain} and extract:
-
-1. Reading Level: (elementary/middle school/high school/college)
-2. Key Concepts: (list 3-5 main concepts covered)
-3. Standard Alignment: (NGSS, Common Core, or other standards mentioned)
-4. Content Type: (textbook/article/experiment/video transcript/other)
-5. Credibility Score: (1-5, based on source authority and citation quality)
+        prompt = f"""Analyze this educational content from {domain} and extract metadata.
 
 URL: {url}
 
-Provide structured output for curriculum alignment."""
+OUTPUT FORMAT:
+Provide a valid JSON object in a code block:
+```json
+{{
+  "reading_level": "elementary/middle school/high school/college",
+  "key_concepts": ["concept1", "concept2", "concept3"],
+  "standard_alignment": "NGSS/Common Core/etc",
+  "content_type": "textbook/article/experiment/video transcript/other",
+  "credibility_score": 1-5,
+  "summary": "Brief 2-sentence summary of the content"
+}}
+```
+"""
 
         return prompt
 

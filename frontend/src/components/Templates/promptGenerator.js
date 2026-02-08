@@ -87,7 +87,8 @@ export function generatePromptForFile(fileData, filename, source, settings = {})
     prompt += `**Data Extraction Rules (CRITICAL):**\n`;
     prompt += `- When requested to export data, provide output in a valid CSV code block.\n`;
     prompt += `- Use EXACTLY these headers: ${columns.join(',')}\n`;
-    prompt += `- Preserve all data relationships. Do not hallucinate values not present in the grid.\n\n`;
+    prompt += `- Preserve all data relationships. Do not hallucinate values not present in the grid.\n`;
+    prompt += `- If a cell is empty in the source, keep it empty in the output.\n\n`;
 
     // Content Context
     prompt += `## Content Context\n`;
@@ -189,6 +190,10 @@ export function generateSourcePrompts(selectedPrompts, dashboardSettings = {}) {
              let urlPrompt = `## TARGET SOURCE CONTEXT\n\n`;
              urlPrompt += `**Instruction:** The user has provided specific URLs to act as the knowledge base for this task.\n`;
              urlPrompt += `**Target URLs:**\n${dashboardSettings.targetUrls}\n\n`;
+
+             // Add Persona even for URL context
+             const persona = determinePersona(dashboardSettings.grade, dashboardSettings.subject);
+             urlPrompt += `**Role:** ${persona}\n`;
              urlPrompt += `**Directive:** Visit and analyze the content from the above URLs. Use them as the primary source of truth for the following report.\n`;
              return urlPrompt;
         }
@@ -350,9 +355,9 @@ export function generateReportPrompt(
     report += `- Provide the Study Guide and Visual Handout descriptions in structured Markdown.\n`;
     report += `- Use clear headings, bullet points, and bold text for readability.\n\n`;
 
-    report += `### SECTION 3: QUIZ & ASSESSMENT\n`;
-    report += `- If a quiz was requested, provide it here.\n`;
+    // Only add Quiz section if requested
     if (dashboardSettings.outputs && dashboardSettings.outputs.quiz) {
+        report += `### SECTION 3: QUIZ & ASSESSMENT\n`;
         const q = dashboardSettings.quizConfig || {};
         report += `- **Requirements:** ${q.mcq || 10} MCQs, ${q.ar || 5} Assertion-Reasoning, ${q.detailed || 3} Detailed Answer.\n`;
         report += `- **Rationales:** Provide detailed NCLEX-style rationales for every answer choice (explaining why correct is correct AND why incorrect is incorrect).\n`;
@@ -374,11 +379,31 @@ export function generateReportPrompt(
 
 /**
  * Generate prompt for Jules based on aggregated input context
+ * Now accepts dashboardSettings for better context awareness
  */
-export function generateJulesPrompt(context) {
+export function generateJulesPrompt(context, dashboardSettings = {}) {
+    const persona = determinePersona(dashboardSettings.grade, dashboardSettings.subject);
+    const difficulty = dashboardSettings.difficulty || 'Medium';
+
+    // Construct task list based on outputs
+    let taskList = `1. **Analyze the Input:** Understand the content structure and key information.\n`;
+    taskList += `2. **Data Quality & Enrichment:** Clean artifacts, standardize values, and ensure factual accuracy.\n`;
+
+    if (dashboardSettings.outputs && dashboardSettings.outputs.quiz) {
+        const q = dashboardSettings.quizConfig || {};
+        taskList += `3. **Quiz Generation:** Create ${q.mcq || 10} MCQs and ${q.ar || 5} Assertion-Reasoning questions based on this content.\n`;
+    }
+
+    if (dashboardSettings.outputs && dashboardSettings.outputs.studyGuide) {
+        taskList += `4. **Study Guide:** Generate a summary of key concepts and definitions.\n`;
+    }
+
+    taskList += `5. **Brainstorming:** Suggest 3-5 specific improvements to make this content more engaging for ${dashboardSettings.grade || 'General'} students.\n`;
+
     return `### INSTRUCTION FOR JULES (AI ASSISTANT) ###
 
-I need you to process the following input context and prepare it for content generation.
+**Role:** ${persona}
+**Objective:** Process the input context to generate high-quality educational artifacts.
 
 **1. INPUT CONTEXT:**
 \`\`\`
@@ -386,18 +411,17 @@ ${context}
 \`\`\`
 
 **2. YOUR TASK:**
-1. **Analyze the Input:** Understand the content, whether it's educational material, quiz data, or general information.
-2. **Data Quality & Enrichment:**
-   - Clean any artifacts.
-   - Standardize values.
-   - **Brainstorming & Improvement:** Brainstorm how this content can be made more effective. Suggest 3-5 specific improvements or additions that would make it more valuable.
-3. **Output Generation:**
-   - Provide a clean, structured representation of the data (JSON or CSV where applicable).
-   - Followed by your "Brainstorming & Enhancement" section.
+${taskList}
 
 **3. CONTEXTUAL OPTIMIZATION:**
-- If this is for a game or educational worksheet, ensure questions/answers are engaging and age-appropriate.
-- Double-check for accuracy against the source material.
+- **Target Audience:** ${dashboardSettings.grade || 'General Audience'}
+- **Difficulty Level:** ${difficulty}
+- **Tone:** Educational, Encouraging, and Rigorous.
 
-Please confirm you understand these instructions.`;
+**4. OUTPUT FORMAT:**
+- Provide clear headings for each section.
+- Use Markdown for formatting (bold, lists, tables).
+- If generating a quiz, provide the Answer Key at the very end.
+
+Please proceed with the analysis and generation.`;
 }
