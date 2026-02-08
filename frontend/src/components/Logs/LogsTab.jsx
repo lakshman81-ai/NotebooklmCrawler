@@ -360,6 +360,17 @@ const LogDetailView = ({ log }) => (
             </div>
         )}
 
+        {log.data && log.data.stack && (
+            <div className="space-y-2">
+                <label className="text-[9px] font-black text-rose-400 uppercase tracking-widest block">Stack Trace</label>
+                <div className="bg-rose-50 text-rose-800 p-3 rounded-xl overflow-x-auto border border-rose-100">
+                    <pre className="text-[10px] leading-relaxed whitespace-pre-wrap">
+                        {log.data.stack}
+                    </pre>
+                </div>
+            </div>
+        )}
+
         <div className="space-y-2">
             <div className="flex items-center justify-between">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Data Payload</label>

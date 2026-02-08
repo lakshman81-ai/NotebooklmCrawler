@@ -58,6 +58,35 @@ export function generateCorrelationId() {
  * @param {string} category - Log Category
  */
 export function log(level, component, functionName, message, data = {}, category = LOG_CATEGORIES.DEFAULT) {
+    // Enhanced Error Serialization
+    let processedData = data;
+    if (data instanceof Error) {
+        processedData = {
+            name: data.name,
+            message: data.message,
+            stack: data.stack,
+            ...data
+        };
+    } else if (typeof data === 'object' && data !== null) {
+        // Attempt to capture Errors nested in objects
+        try {
+            // This trick (getOwnPropertyNames) helps serialize Error props like stack
+            processedData = JSON.parse(JSON.stringify(data, (key, value) => {
+                if (value instanceof Error) {
+                    return {
+                        name: value.name,
+                        message: value.message,
+                        stack: value.stack,
+                        ...value
+                    };
+                }
+                return value;
+            }));
+        } catch (e) {
+            processedData = { ...data, _serializationError: e.message };
+        }
+    }
+
     const entry = {
         id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: new Date().toISOString(),
@@ -66,16 +95,36 @@ export function log(level, component, functionName, message, data = {}, category
         component,
         function: functionName,
         message,
-        data,
+        data: processedData,
         // Workflow context
         workflow: getCurrentWorkflow(),
         // Variable snapshot (for debugging)
-        variables: data.variables || null,
+        variables: (processedData && processedData.variables) || null,
         source: 'frontend'
     };
 
     addLogEntry(entry);
     return entry.id;
+}
+
+// Global Error Handlers (Frontend)
+if (typeof window !== 'undefined') {
+    window.onerror = function (message, source, lineno, colno, error) {
+        log(LOG_LEVELS.ERROR, 'Window', 'onerror', message, {
+            source,
+            lineno,
+            colno,
+            error: error
+        });
+    };
+
+    window.onunhandledrejection = function (event) {
+        const reason = event.reason;
+        const msg = reason instanceof Error ? reason.message : (typeof reason === 'string' ? reason : 'Unhandled Promise Rejection');
+        log(LOG_LEVELS.ERROR, 'Window', 'onunhandledrejection', msg, {
+            reason: reason
+        });
+    };
 }
 
 // Internal add with dedup/limit
