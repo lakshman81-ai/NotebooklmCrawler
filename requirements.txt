@@ -9,6 +9,9 @@ pytest
 flake8
 mypy
 streamlit==1.32.0
-ddgs
+duckduckgo-search>=5.0
 curl-cffi
 pytest-asyncio
+playwright-stealth
+jinja2
+google-api-python-client
