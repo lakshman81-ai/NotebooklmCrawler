@@ -32,7 +32,8 @@ from extractors.html_extractor import extract  # noqa: E402
 from postprocess.cleaner import clean_html  # noqa: E402
 from postprocess.chunker import chunk_sections  # noqa: E402
 from contracts.content_request import ContentRequest  # noqa: E402
-from crawler.discovery_router import filter_urls, discover_urls  # noqa: E402
+# Correctly import from the new unified router
+from discovery.discovery_router import filter_urls, discover_urls  # noqa: E402
 from postprocess.context_builder import build_context  # noqa: E402
 from postprocess.composer import compose_output  # noqa: E402
 from ai_pipeline.ai_router import run_ai  # noqa: E402
@@ -85,6 +86,27 @@ def get_content_request() -> ContentRequest:
         output_config = json.loads(output_config_str)
     except:
         output_config = {}
+
+    # INJECTION LOGIC: BRIDGE FRONTEND SETTINGS TO BACKEND ENV
+    # The frontend passes settings (Google Keys, Toggle) inside 'output_config' or 'config' field of the JSON payload.
+    # When this script is called by the bridge (run.py), these settings should be in CR_OUTPUT_CONFIG.
+
+    if output_config:
+        # 1. Google Search API Keys
+        if output_config.get('googleApiKey'):
+            os.environ["GOOGLE_SEARCH_API_KEY"] = str(output_config.get('googleApiKey'))
+            logger.info("Config: GOOGLE_SEARCH_API_KEY injected from frontend settings.")
+
+        if output_config.get('googleCx'):
+            os.environ["GOOGLE_SEARCH_CX"] = str(output_config.get('googleCx'))
+            logger.info("Config: GOOGLE_SEARCH_CX injected from frontend settings.")
+
+        # 2. NotebookLM Injection Mode
+        # Frontend checkbox: 'notebooklmInjectionMode' (boolean)
+        if 'notebooklmInjectionMode' in output_config:
+             mode = str(output_config.get('notebooklmInjectionMode')).lower()
+             os.environ["NOTEBOOKLM_INJECTION_MODE"] = mode
+             logger.info(f"Config: NOTEBOOKLM_INJECTION_MODE set to {mode}")
 
     return ContentRequest(
         grade=os.getenv("CR_GRADE", "Grade 8"),
@@ -274,7 +296,12 @@ async def main():
                     query = "educational resources"
 
                 logger.info(f"Executing Discovery with Query: {query}")
-                discovered_urls = await discover_urls(page, query, method=discovery_method)
+
+                # Update: Use the new unified discover_urls which returns list of strings directly
+                # Old code might have expected page arg or different signature
+                # New signature: discover_urls(query, max_results=10, method="auto")
+                # Need to check if method arg in run.py aligns
+                discovered_urls = await discover_urls(query, max_results=5, method=discovery_method)
 
                 if not discovered_urls:
                     logger.error("Discovery failed to find any URLs. Please check network or try a different method.")

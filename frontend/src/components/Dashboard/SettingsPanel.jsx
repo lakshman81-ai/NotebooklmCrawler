@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Globe, Video, UserCheck, Bot, Cpu, Zap } from 'lucide-react';
+import { Shield, Globe, Video, UserCheck, Bot, Cpu, Zap, Search } from 'lucide-react';
 import { checkBackendHealth } from '../../services/apiConfig';
 
 const SettingsPanel = ({ settings, setSettings }) => {
@@ -32,7 +32,7 @@ const SettingsPanel = ({ settings, setSettings }) => {
                 <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                         <Zap className="w-3 h-3 text-amber-500" />
-                        AI INFERENCE BACKEND
+                        AI INFERENCE BACKEND (DEEPSEEK / OPENAI)
                     </label>
                     <div className="flex gap-3">
                         <input
@@ -55,6 +55,51 @@ const SettingsPanel = ({ settings, setSettings }) => {
                         </button>
                     </div>
                 </div>
+
+                {/* Google Search API Section */}
+                <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <Search className="w-3 h-3 text-blue-500" />
+                        GOOGLE SEARCH API (OPTIONAL FALLBACK)
+                    </label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <input
+                            type="password"
+                            className="w-full px-5 py-3 border border-slate-200 rounded-2xl focus:ring-4 ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm shadow-sm"
+                            placeholder="API Key (AIza...)"
+                            value={settings.googleApiKey || ''}
+                            onChange={e => setSettings({ ...settings, googleApiKey: e.target.value })}
+                        />
+                        <input
+                            type="text"
+                            className="w-full px-5 py-3 border border-slate-200 rounded-2xl focus:ring-4 ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm shadow-sm"
+                            placeholder="Search Engine ID (CX)"
+                            value={settings.googleCx || ''}
+                            onChange={e => setSettings({ ...settings, googleCx: e.target.value })}
+                        />
+                    </div>
+                    <p className="text-[10px] text-slate-400 pl-2">Used only if DuckDuckGo fails. Leave empty to rely on DDG.</p>
+                </div>
+
+                {/* NotebookLM Injection Mode Toggle */}
+                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between">
+                    <div>
+                        <div className="text-xs font-black text-amber-900 uppercase tracking-wider mb-1">NotebookLM DOM Injection</div>
+                        <div className="text-[10px] text-amber-700 font-medium">Use legacy JavaScript injection instead of Clipboard Paste (Backup only).</div>
+                    </div>
+                    <div className="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                        <input
+                            type="checkbox"
+                            name="toggle"
+                            id="injection-toggle"
+                            className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 transform translate-x-0 checked:translate-x-6 checked:border-amber-500"
+                            checked={settings.notebooklmInjectionMode || false}
+                            onChange={(e) => setSettings({...settings, notebooklmInjectionMode: e.target.checked})}
+                        />
+                        <label htmlFor="injection-toggle" className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer transition-colors ${settings.notebooklmInjectionMode ? 'bg-amber-500' : 'bg-amber-200'}`}></label>
+                    </div>
+                </div>
+
 
                 <div className="w-full h-px bg-slate-100"></div>
 

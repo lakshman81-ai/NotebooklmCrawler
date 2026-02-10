@@ -1,0 +1,37 @@
+SOURCE ANALYSIS CONTEXT:
+Analyze the sources for Authority and Gaps. Focus on '{{ keywords_report }}' if provided.
+
+[DIFFICULTY: {{ difficulty }}]
+{% if difficulty == 'Identify' %}
+Focus on definitions, basic facts, and identification of key terms. (Easy Level)
+{% elif difficulty == 'Connect' %}
+Focus on relationships, cause-and-effect, and connecting concepts across sources. (Medium Level)
+{% elif difficulty == 'Extend' %}
+Focus on applications, scenario-based analysis, and extending concepts to new situations. (Hard Level)
+{% else %}
+Focus on comprehensive understanding.
+{% endif %}
+
+{% if outputs.studyGuide %}
+[TASK: STUDY GUIDE]
+Create a detailed study guide extracting Anchor Concepts and key definitions.
+{% endif %}
+
+{% if outputs.quiz %}
+[TASK: QUIZ]
+Create a quiz with {{ quizConfig.mcq|default(10) }} Multiple Choice Questions, {{ quizConfig.ar|default(5) }} Assertion-Reasoning questions, and {{ quizConfig.detailed|default(3) }} Detailed Answer questions. Include a separate Answer Key.
+{% endif %}
+
+{% if outputs.handout %}
+[TASK: HANDOUT]
+Create a Visual Handout script describing a layout for a one-page summary with diagrams.
+{% endif %}
+
+{% if custom_prompt %}
+[CUSTOM INSTRUCTIONS]
+{{ custom_prompt }}
+{% endif %}
+
+{% if not (outputs.studyGuide or outputs.quiz or outputs.handout or custom_prompt) %}
+Create a comprehensive summary of the sources.
+{% endif %}
