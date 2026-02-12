@@ -3,6 +3,7 @@ import { Play, ShieldCheck, Activity, Terminal, Globe, Bot, Download, Check, Lin
 import { logGate } from '../../services/loggingService';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
 import { API_BASE_URL } from '../../services/apiConfig';
+import { searchGoogleClient, generateSearchLink } from '../../services/clientSearch';
 
 // --- Query Builder Logic (Report Implementation) ---
 const buildEducationalQuery = (context, config) => {
@@ -921,8 +922,43 @@ const AutoMode = () => {
         }
 
         setIsFetching(true);
-        // setLogs(prev => [`[SYSTEM] Fetching URLs via Bridge...`, ...prev]);
+        const query = buildEducationalQuery(context, config);
 
+        // --- STATIC MODE (Client-Side Fallback) ---
+        if (isOffline) {
+            // Attempt Google Client Search
+            if (context.intelligenceSource === 'GOOGLE') {
+                try {
+                    setLogs(prev => [`[STATIC] Attempting Client-Side Google Search...`, ...prev]);
+                    const results = await searchGoogleClient(query, config);
+                    if (results.length > 0) {
+                        const urls = results.map(r => r.url).join('\n');
+                        setContext(prev => ({ ...prev, targetUrls: urls }));
+                        setLogs(prev => [`[SUCCESS] Fetched ${results.length} URLs via Client API.`, ...prev]);
+                    } else {
+                        alert("No results found via Google API.");
+                    }
+                } catch (e) {
+                    console.error("Client Search Failed:", e);
+                    setLogs(prev => [`[ERROR] Client Search Failed: ${e.message}`, ...prev]);
+                    const link = generateSearchLink(query, 'google');
+                    if (confirm(`Direct Fetch Failed: ${e.message}\n\nOpen Google Search in new tab instead?`)) {
+                        window.open(link, '_blank');
+                    }
+                }
+            } else {
+                // DDG/Bing requires backend for scraping due to CORS.
+                // In Static Mode, we can only offer a direct link.
+                const link = generateSearchLink(query, 'bing');
+                if (confirm("In Static Mode (GitHub Pages), automated scraping requires a local backend.\n\nOpen Bing Search in a new tab to copy URLs manually?")) {
+                    window.open(link, '_blank');
+                }
+            }
+            setIsFetching(false);
+            return;
+        }
+
+        // --- BACKEND MODE (Standard) ---
         try {
             console.log("Fetching URLs with:", {
                 grade: context.grade,
@@ -943,11 +979,17 @@ const AutoMode = () => {
                     subtopics: context.subtopics,
                     maxResults: 5,
                     trustedDomains: context.useTrustedSites ? config.trustedDomains : null,
-                    blockedDomains: config.blockedDomains
+                    blockedDomains: config.blockedDomains,
+                    method: context.intelligenceSource.toLowerCase() // Pass selected method
                 })
             });
-            const data = await response.json();
 
+            // Check for network failure (backend unreachable)
+            if (!response.ok) {
+                throw new Error(`Backend Error (${response.status})`);
+            }
+
+            const data = await response.json();
             console.log("Fetch response:", data);
 
             if (data.success && data.results && data.results.length > 0) {
@@ -958,13 +1000,17 @@ const AutoMode = () => {
                 }));
                 alert(`Fetched ${data.results.length} URLs successfully!`);
             } else {
-                // Handle success=False or success=True but empty list
                 const msg = data.message || "No results found for these criteria.";
                 throw new Error(msg);
             }
         } catch (e) {
             console.error("Fetch error:", e);
-            alert(`Fetch failed: ${e.message}`);
+            // Detect if this is a "Failed to fetch" (Network Error) which usually means Backend Down
+            if (e.message.includes('Failed to fetch') || e.message.includes('Backend Error')) {
+                 alert("Backend Unreachable.\n\nEnsure 'python bridge.py' is running locally, or switch to Google Source (with API Keys) for client-side fetching.");
+            } else {
+                 alert(`Fetch failed: ${e.message}`);
+            }
         } finally {
             setIsFetching(false);
         }
