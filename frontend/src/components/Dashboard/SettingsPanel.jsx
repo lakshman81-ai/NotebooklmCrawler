@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, Globe, Video, UserCheck, Bot, Cpu, Zap, Search } from 'lucide-react';
 import { checkBackendHealth } from '../../services/apiConfig';
+import { APP_VERSION } from '../../version';
 
 const SettingsPanel = ({ settings, setSettings }) => {
     const [testStatus, setTestStatus] = useState(null); // null, 'testing', 'success', 'error'
@@ -19,7 +20,7 @@ const SettingsPanel = ({ settings, setSettings }) => {
     };
 
     return (
-        <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm space-y-8">
+        <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm space-y-8 relative">
             <div className="flex items-center gap-3">
                 <div className="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-100">
                     <Shield className="w-6 h-6" />
@@ -147,8 +148,13 @@ const SettingsPanel = ({ settings, setSettings }) => {
                 </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 italic text-[10px] text-slate-400 font-medium">
-                Hardware acceleration enabled for Mode B.
+            <div className="pt-6 border-t border-slate-100 flex justify-between items-center">
+                <div className="italic text-[10px] text-slate-400 font-medium">
+                    Hardware acceleration enabled for Mode B.
+                </div>
+                <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest">
+                    {APP_VERSION}
+                </div>
             </div>
         </div>
     );
