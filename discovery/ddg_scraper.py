@@ -9,7 +9,10 @@ import logging
 import asyncio
 from typing import List
 from playwright.async_api import Page
-from discovery.bing_search import EducationalContentSearcher
+try:
+    from discovery.bing_search import EducationalContentSearcher
+except ImportError:
+    EducationalContentSearcher = None
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +37,10 @@ async def scrape_ddg_search(
     logger.info(f"Bing scraping (via EducationalContentSearcher): '{query}' (max={max_results})")
 
     def _perform_search():
+        if not EducationalContentSearcher:
+            logger.error("EducationalContentSearcher (Camoufox) not available.")
+            return []
+
         searcher = EducationalContentSearcher(
             headless=True,
             config_file='outputs/search_config.json',

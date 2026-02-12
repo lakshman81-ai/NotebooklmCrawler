@@ -6,13 +6,16 @@ import subprocess
 import sys
 import os
 import json
+import logging
 import asyncio
 import io
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 from dotenv import set_key
 import pandas as pd
-from discovery.edu_search_pipeline import EduSearchPipeline
+from discovery.edu_search_pipeline import EduSearchPipeline, setup_logger
+
+setup_logger(level=logging.INFO) # Ensure logs are captured
 
 app = FastAPI()
 
@@ -25,6 +28,7 @@ class DiscoveryRequest(BaseModel):
     region: Optional[str] = "us-en"
     trustedDomains: Optional[str] = None
     blockedDomains: Optional[str] = None
+    method: Optional[str] = "auto" # "auto", "bing", "ddg"
 
 class ConfigSaveRequest(BaseModel):
     maxTokens: int
@@ -288,7 +292,8 @@ async def fetch_discovery_urls(req: DiscoveryRequest):
             max_results=req.maxResults,
             region=req.region,
             extra_domains=extra_domains,
-            blocked_domains=blocked_domains
+            blocked_domains=blocked_domains,
+            method=req.method or "auto"
         )
 
         return {
@@ -296,8 +301,21 @@ async def fetch_discovery_urls(req: DiscoveryRequest):
             "results": [r.to_dict() for r in results]
         }
     except Exception as e:
+        # Log the full error but return a clean message to the frontend
+        # so it doesn't just say "Failed to fetch" (network error)
         print(f"Discovery Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()
+
+        # Return 200 with success=False to let frontend handle it gracefully
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": False,
+                "message": f"Search failed: {str(e)}",
+                "results": []
+            }
+        )
 
 @app.get("/api/projects/list")
 async def list_projects():

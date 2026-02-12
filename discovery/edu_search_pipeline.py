@@ -27,7 +27,18 @@ import json
 import sys
 from urllib.parse import urlparse
 from dataclasses import dataclass, field
-from discovery.bing_search import EducationalContentSearcher
+try:
+    from discovery.bing_search import EducationalContentSearcher
+except ImportError:
+    EducationalContentSearcher = None
+
+try:
+    from ddgs import DDGS
+except ImportError:
+    try:
+        from duckduckgo_search import DDGS
+    except ImportError:
+        DDGS = None
 
 # ═══════════════════════════════════════════════════════
 #  LOGGING
@@ -118,6 +129,10 @@ URL_EXCLUDE_PATTERNS = [
     "/login", "/signup", "/pricing", "/cart", "/checkout",
     "/subscribe", "/premium", "/app-download", "/trial",
 ]
+BLOCK_DOMAINS = [
+    "youtube.com", "facebook.com", "twitter.com",
+    "instagram.com", "pinterest.com", "linkedin.com", "amazon.com"
+]
 
 MAX_RETRIES = 3
 BASE_DELAY = 2.0
@@ -176,12 +191,19 @@ class EduSearchPipeline:
         self.band_domains = band_domains or TRUSTED_DOMAINS_BY_BAND
         self.content_keywords = content_keywords or CONTENT_TYPE_KEYWORDS
 
-        # Initialize the Bing searcher
-        self.searcher = EducationalContentSearcher(
-            headless=True,
-            config_file='outputs/search_config.json',
-            cache_dir='outputs/search_cache'
-        )
+        # Initialize the Bing searcher safely
+        self.searcher = None
+        if EducationalContentSearcher:
+            try:
+                self.searcher = EducationalContentSearcher(
+                    headless=True,
+                    config_file='outputs/search_config.json',
+                    cache_dir='outputs/search_cache'
+                )
+            except Exception as e:
+                logger.warning(f"Failed to initialize EducationalContentSearcher: {e}")
+        else:
+            logger.warning("EducationalContentSearcher (Camoufox) not available. Scraper will be disabled.")
 
     # ── Helpers ──────────────────────────────────────
 
@@ -259,14 +281,15 @@ class EduSearchPipeline:
         Construct optimized Bing query string.
 
         Structure:
-          "Grade N" "Subject" "Topic" ["Subtopic"]
+          Grade N Subject Topic ["Subtopic"]
           keyword1 keyword2
           -exclusion1 -exclusion2
           (site:a OR site:b OR ...)
         """
-        parts = [f'"Grade {grade}"', f'"{subject}"', f'"{topic}"']
+        # Removed strict quotes to allow better fuzzy matching (e.g. "8th Grade" vs "Grade 8")
+        parts = [f'Grade {grade}', f'{subject}', f'{topic}']
         if subtopic:
-            parts.append(f'"{subtopic}"')
+            parts.append(f'{subtopic}')
 
         if content_types:
             for ct in content_types:
@@ -305,6 +328,9 @@ class EduSearchPipeline:
 
         Returns raw result dicts with keys: title, url, snippet.
         """
+        if not self.searcher:
+            raise SearchError("Bing scraper (EducationalContentSearcher) is not available.")
+
         try:
             self.searcher.start()
             results = self.searcher.search_bing(query, count=max_results)
@@ -313,7 +339,35 @@ class EduSearchPipeline:
             logger.error(f"Bing search failed: {e}")
             raise SearchError(f"Bing search failed: {e}")
         finally:
-            self.searcher.close()
+            if self.searcher:
+                self.searcher.close()
+
+    def fetch_ddg(self, query: str, max_results: int = 10) -> list[dict]:
+        """
+        Execute DuckDuckGo search using duckduckgo_search library.
+        Robust fallback method.
+        """
+        if not DDGS:
+            logger.error("DuckDuckGo search library not installed.")
+            return []
+
+        try:
+            logger.info(f"Executing DDG Search: {query}")
+            results = []
+            with DDGS() as ddgs:
+                # ddgs.text returns an iterator of dicts {'title':..., 'href':..., 'body':...}
+                ddg_results = ddgs.text(query, max_results=max_results)
+                for r in ddg_results:
+                    results.append({
+                        "title": r.get('title', ''),
+                        "url": r.get('href', ''),
+                        "snippet": r.get('body', '')
+                    })
+            logger.info(f"DDG Search returned {len(results)} results")
+            return results
+        except Exception as e:
+            logger.error(f"DDG search failed: {e}")
+            return []
 
     # ── Step 4: Filter ───────────────────────────────
 
@@ -400,50 +454,70 @@ class EduSearchPipeline:
         safesearch: str = "moderate",
         max_results: int = 10,
         strict_domain_filter: bool = False,
+        method: str = "auto"
     ) -> list[SearchResult]:
         """
         Full pipeline: resolve → build → fetch → filter.
         Includes automatic fallback if strict domain filtering yields no results.
+
+        Args:
+            method: "auto", "bing" (scraper), or "ddg" (api-like)
         """
         logger.info(
-            f"Starting search: Grade {grade} {subject} > {topic}"
+            f"Starting search ({method}): Grade {grade} {subject} > {topic}"
             + (f" > {subtopic}" if subtopic else "")
         )
 
-        # 1. Try Strict/Trusted Search
+        # 1. Resolve Domains
         domains = self.resolve_domains(grade, subject, extra_domains)
-        query = self.build_query(
-            grade, subject, topic, subtopic, content_types, domains
-        )
 
-        try:
-            # Note: region/safesearch are not currently passed to EducationalContentSearcher
-            # as it relies on default browser settings or would need logic updates
-            raw = self.fetch(query, max_results)
-            results = self.filter_results(raw, domains, blocked_domains, strict_domain_filter)
-        except Exception as e:
-            logger.warning(f"Primary search failed: {e}")
-            results = []
+        # 2. Determine Strategy
+        use_bing = False
+        use_ddg = False
 
-        # 2. Fallback: Relaxed Search (No site: filters) if no results
-        if not results:
-            logger.info("No results from strict search. Attempting fallback (no site filters)...")
+        if method == "bing":
+            use_bing = True
+        elif method == "ddg":
+            use_ddg = True
+        else: # auto
+            # Prefer DDG if available (safer), fallback to Bing if requested?
+            # Actually, user wants robust. DDG is robust.
+            # But let's try to stick to the original intent: Bing Scraper is "High Quality" if it works.
+            # If scraper is not loaded, force DDG.
+            if self.searcher:
+                use_bing = True
+            else:
+                use_ddg = True
 
-            # Rebuild query WITHOUT domains
-            fallback_query = self.build_query(
-                grade, subject, topic, subtopic, content_types, domains=None
-            )
+        # 3. Execution
+        results = []
 
+        # Primary Attempt
+        if use_bing:
+            query = self.build_query(grade, subject, topic, subtopic, content_types, domains)
             try:
-                raw_fallback = self.fetch(fallback_query, max_results)
-                results = self.filter_results(raw_fallback, domains, blocked_domains, strict=strict_domain_filter)
-
-                if results:
-                    logger.info(f"Fallback successful: {len(results)} results found.")
-                else:
-                    logger.warning("Fallback search also returned no results.")
+                raw = self.fetch(query, max_results)
+                results = self.filter_results(raw, domains, blocked_domains, strict_domain_filter)
             except Exception as e:
-                logger.error(f"Fallback search failed: {e}")
+                logger.warning(f"Bing strategy failed: {e}. Switching to fallback.")
+                use_ddg = True # Trigger fallback
+
+        if use_ddg or (not results and method == "auto"):
+            # Fallback to DDG
+            logger.info("Attempting DuckDuckGo strategy...")
+            # DDG query usually works better without "site:..." overloading in the query string itself
+            # But we can try the same query first
+            # Rebuild query for DDG (maybe simpler?)
+            query = self.build_query(grade, subject, topic, subtopic, content_types, domains)
+            raw = self.fetch_ddg(query, max_results)
+            results = self.filter_results(raw, domains, blocked_domains, strict_domain_filter)
+
+            # If strictly filtered DDG returned nothing, try relaxed DDG
+            if not results:
+                logger.info("Strict DDG yielded no results. Relaxing domain filters...")
+                fallback_query = self.build_query(grade, subject, topic, subtopic, content_types, domains=None)
+                raw_fallback = self.fetch_ddg(fallback_query, max_results)
+                results = self.filter_results(raw_fallback, domains, blocked_domains, strict=strict_domain_filter)
 
         logger.info(
             f"Search complete: {len(results)} results for "
@@ -476,6 +550,7 @@ if __name__ == "__main__":
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--log-file", type=str, default=None)
+    parser.add_argument("--method", type=str, default="auto", choices=["auto", "bing", "ddg"])
 
     args = parser.parse_args()
 
@@ -494,6 +569,7 @@ if __name__ == "__main__":
         max_results=args.max_results,
         region=args.region,
         strict_domain_filter=args.strict,
+        method=args.method
     )
 
     if args.json:
