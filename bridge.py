@@ -296,9 +296,19 @@ async def fetch_discovery_urls(req: DiscoveryRequest):
             method=req.method or "auto"
         )
 
+        # If auto mode and no results, try one last desperation DDG search without any filters
+        if not results and (not req.method or req.method == "auto"):
+             print("Bridge: Primary search yielded 0 results. Attempting emergency fallback.")
+             # Direct call to fetch_ddg with minimal query
+             emergency_query = f"{req.grade} {req.subject} {req.topic} {req.subtopics or ''}"
+             raw = pipeline.fetch_ddg(emergency_query, max_results=req.maxResults)
+             # Minimal filtering (just blocklist)
+             results = pipeline.filter_results(raw, [], blocked_domains, strict=False)
+
         return {
             "success": True,
-            "results": [r.to_dict() for r in results]
+            "results": [r.to_dict() for r in results],
+            "message": f"Found {len(results)} results" if results else "No results found. Try broader topics."
         }
     except Exception as e:
         # Log the full error but return a clean message to the frontend

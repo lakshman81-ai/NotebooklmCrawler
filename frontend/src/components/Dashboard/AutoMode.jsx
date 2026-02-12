@@ -950,24 +950,20 @@ const AutoMode = () => {
 
             console.log("Fetch response:", data);
 
-            if (data.success && data.results) {
+            if (data.success && data.results && data.results.length > 0) {
                 const urls = data.results.map(r => r.url).join('\n');
                 setContext(prev => ({
                     ...prev,
                     targetUrls: urls,
-                    // searchWeb: false // User wants to keep "Target URLs" visible, not necessarily switch mode.
-                    // But if we have URLs, we typically use "Direct" mode (searchWeb=false).
-                    // The user said: 'keep "Target URLS" text box in "intelligence source" and always visible.'
-                    // So we will just populate it.
                 }));
-                // setLogs(prev => [`[SUCCESS] Fetched ${data.results.length} URLs.`, ...prev]);
                 alert(`Fetched ${data.results.length} URLs successfully!`);
             } else {
-                throw new Error("No results returned or success=false");
+                // Handle success=False or success=True but empty list
+                const msg = data.message || "No results found for these criteria.";
+                throw new Error(msg);
             }
         } catch (e) {
             console.error("Fetch error:", e);
-            // setLogs(prev => [`[ERROR] Fetch failed: ${e.message}`, ...prev]);
             alert(`Fetch failed: ${e.message}`);
         } finally {
             setIsFetching(false);

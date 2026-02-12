@@ -6,6 +6,7 @@ import AdminTab from './components/Admin/AdminTab';
 import TemplatesTab from './components/Templates/TemplatesTab';
 import { LayoutDashboard, Settings, ShieldAlert, Activity, FileSpreadsheet, Terminal, Wifi, WifiOff } from 'lucide-react';
 import { useBackendStatus } from './hooks/useBackendStatus';
+import { APP_VERSION } from './version';
 
 function App() {
     const [activeTab, setActiveTab] = useState('DASHBOARD');
@@ -47,7 +48,7 @@ function App() {
 
                     <div className="flex items-center gap-4">
                         <div className="hidden sm:flex px-3 py-1 bg-slate-100 rounded-full border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
-                            v2.2 Production
+                            {APP_VERSION}
                         </div>
                         <div className="text-sm font-medium text-slate-600 border-l border-slate-200 pl-4 flex items-center gap-2">
                             {isOnline === true ? (
