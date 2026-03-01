@@ -87,7 +87,12 @@ const ConfigTab = () => {
         deepseekApiKey: '',
         showGeminiKey: false,
         showOpenAIKey: false,
-        showDeepSeekKey: false
+        showDeepSeekKey: false,
+        // Khoj
+        khojAvailable: false,
+        khojBaseUrl: 'http://localhost:42110',
+        khojApiKey: '',
+        showKhojKey: false
     });
 
     const [saving, setSaving] = useState(false);
@@ -114,6 +119,9 @@ const ConfigTab = () => {
                     notebooklmAvailable: localConfig.notebooklmAvailable !== false,
                     deepseekAvailable: localConfig.deepseekAvailable || false,
                     notebooklmGuided: localConfig.notebooklmGuided || false,
+                    khojAvailable: localConfig.khojAvailable || false,
+                    khojBaseUrl: localConfig.khojBaseUrl || 'http://localhost:42110',
+                    khojApiKey: localConfig.khojApiKey || '',
                     trustedDomains: localConfig.trustedDomains || 'byjus.com, vedantu.com, khanacademy.org, ncert.nic.in, toppr.com, meritnation.com',
                     blockedDomains: localConfig.blockedDomains || 'duckduckgo.com, youtube.com, facebook.com, twitter.com, instagram.com, pinterest.com, linkedin.com, amazon.com',
                     // API Keys
@@ -143,6 +151,9 @@ const ConfigTab = () => {
                             notebooklmAvailable: data.notebooklmAvailable ?? prev.notebooklmAvailable,
                             deepseekAvailable: data.deepseekAvailable ?? prev.deepseekAvailable,
                             notebooklmGuided: data.notebooklmGuided ?? prev.notebooklmGuided,
+                            khojAvailable: data.khojAvailable ?? prev.khojAvailable,
+                            khojBaseUrl: data.khojBaseUrl || prev.khojBaseUrl,
+                            khojApiKey: data.khojApiKey || prev.khojApiKey,
                             trustedDomains: data.trustedDomains || prev.trustedDomains,
                             blockedDomains: data.blockedDomains || prev.blockedDomains
                         }));
@@ -181,6 +192,9 @@ const ConfigTab = () => {
             notebooklmAvailable: config.notebooklmAvailable,
             deepseekAvailable: config.deepseekAvailable,
             notebooklmGuided: config.notebooklmGuided,
+            khojAvailable: config.khojAvailable,
+            khojBaseUrl: config.khojBaseUrl,
+            khojApiKey: config.khojApiKey,
             trustedDomains: config.trustedDomains,
             blockedDomains: config.blockedDomains,
             // API Keys (Phase 4)
@@ -325,6 +339,7 @@ const ConfigTab = () => {
                                 <option value="notebooklm">NOTEBOOKLM</option>
                                 <option value="auto">AUTO</option>
                                 <option value="deepseek">DEEPSEEK</option>
+                                <option value="khoj">KHOJ</option>
                             </select>
                         </div>
                     </div>
@@ -383,6 +398,14 @@ const ConfigTab = () => {
                             description="Enable DeepSeek AI integration"
                             active={config.deepseekAvailable}
                             onChange={() => setConfig({ ...config, deepseekAvailable: !config.deepseekAvailable })}
+                        />
+
+                        <Toggle
+                            label="Khoj Available"
+                            description="Enable self-hosted Khoj AI (REST API, no browser)"
+                            active={config.khojAvailable}
+                            onChange={() => setConfig({ ...config, khojAvailable: !config.khojAvailable })}
+                            color="emerald"
                         />
 
                         <div className="border-t border-slate-100 pt-4">
@@ -534,6 +557,44 @@ const ConfigTab = () => {
                                 {config.showDeepSeekKey ? '🙈' : '👁️'}
                             </button>
                         </div>
+                    </div>
+
+                    {/* Khoj Base URL */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block pl-1">
+                            Khoj Base URL
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="http://localhost:42110"
+                            value={config.khojBaseUrl || ''}
+                            onChange={(e) => setConfig({ ...config, khojBaseUrl: e.target.value })}
+                            className="w-full px-5 py-3.5 bg-white border border-purple-200 rounded-2xl focus:ring-4 ring-purple-500/10 focus:border-purple-600 outline-none transition-all font-mono text-sm text-slate-700"
+                        />
+                        <p className="text-[9px] text-slate-400 pl-1">Self-hosted Khoj server URL (default: http://localhost:42110) or https://app.khoj.dev</p>
+                    </div>
+
+                    {/* Khoj API Key */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block pl-1">
+                            Khoj API Key
+                        </label>
+                        <div className="relative">
+                            <input
+                                type={config.showKhojKey ? "text" : "password"}
+                                placeholder="kk-..."
+                                value={config.khojApiKey || ''}
+                                onChange={(e) => setConfig({ ...config, khojApiKey: e.target.value })}
+                                className="w-full px-5 py-3.5 pr-12 bg-white border border-purple-200 rounded-2xl focus:ring-4 ring-purple-500/10 focus:border-purple-600 outline-none transition-all font-mono text-sm text-slate-700"
+                            />
+                            <button
+                                onClick={() => setConfig({ ...config, showKhojKey: !config.showKhojKey })}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            >
+                                {config.showKhojKey ? '🙈' : '👁️'}
+                            </button>
+                        </div>
+                        <p className="text-[9px] text-slate-400 pl-1">Create in Khoj Settings → API Keys. Required when Khoj Available is ON.</p>
                     </div>
 
                     <div className="p-4 bg-purple-100 border border-purple-200 rounded-2xl flex gap-3">
