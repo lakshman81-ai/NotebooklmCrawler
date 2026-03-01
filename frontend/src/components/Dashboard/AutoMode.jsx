@@ -538,6 +538,24 @@ const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onTogg
                                 subText={config.notebooklmGuided ? "Guided Mode" : null}
                             />
                         )}
+                        {config.khojAvailable && (
+                            <SourceButton
+                                id="KHOJ"
+                                label="KHOJ"
+                                icon={Cpu}
+                                disabled={crawlersDisabled}
+                                subText="REST API"
+                            />
+                        )}
+                        {config.anythingllmAvailable && (
+                            <SourceButton
+                                id="ANYTHINGLLM"
+                                label="ANYTHINGLLM"
+                                icon={Layers}
+                                disabled={crawlersDisabled}
+                                subText={config.anythingllmMode === 'url_direct' ? "URL Direct" : "Chunk Based"}
+                            />
+                        )}
                     </div>
                 </div>
 
@@ -745,6 +763,8 @@ const AutoMode = () => {
         maxTokens: 2000, strategy: 'section_aware', model: 'gpt-4-turbo', headless: false,
         chromeUserDataDir: '', discoveryMethod: 'notebooklm', notebooklmAvailable: true,
         deepseekAvailable: false, notebooklmGuided: false,
+        khojAvailable: false, anythingllmAvailable: false,
+        anythingllmMode: 'url_direct',
         trustedDomains: 'byjus.com, vedantu.com, khanacademy.org, ncert.nic.in, toppr.com, meritnation.com'
     });
 
@@ -796,8 +816,9 @@ const AutoMode = () => {
                 setContext(prev => ({ ...prev, intelligenceSource: 'GOOGLE' }));
             }
         } else {
-            // Crawler Mode: Must be AUTO or NOTEBOOKLM
-            if (context.intelligenceSource !== 'AUTO' && context.intelligenceSource !== 'NOTEBOOKLM') {
+            // Crawler Mode: Must be AUTO, NOTEBOOKLM, KHOJ, or ANYTHINGLLM
+            const validCrawlers = ['AUTO', 'NOTEBOOKLM', 'KHOJ', 'ANYTHINGLLM'];
+            if (!validCrawlers.includes(context.intelligenceSource)) {
                 setContext(prev => ({ ...prev, intelligenceSource: 'AUTO' }));
             }
         }
@@ -1055,9 +1076,11 @@ const AutoMode = () => {
                     sourceType: context.intelligenceSource.toLowerCase(),
                     config: {
                         ...config,
-                        discoveryMethod: (context.intelligenceSource === 'AUTO' || context.intelligenceSource === 'GOOGLE' || context.intelligenceSource === 'DDG')
-                            ? (context.searchWeb ? 'Auto' : 'Direct')
-                            : config.discoveryMethod || 'notebooklm',
+                        discoveryMethod: context.intelligenceSource === 'KHOJ' ? 'khoj'
+                            : context.intelligenceSource === 'ANYTHINGLLM' ? 'anythingllm'
+                            : (context.intelligenceSource === 'AUTO' || context.intelligenceSource === 'GOOGLE' || context.intelligenceSource === 'DDG')
+                                ? (context.searchWeb ? 'Auto' : 'Direct')
+                                : config.discoveryMethod || 'notebooklm',
                         outputs: context.outputs,
                         quizConfig: context.quizConfig,
                         difficulty: context.difficulty,
