@@ -459,7 +459,8 @@ const TextAreaField = ({ label, value, onChange, placeholder, required = false, 
 
 // --- Modern Intelligence Source Selector ---
 const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onToggleSearch, isOffline, useTrustedSites, onToggleTrustedSites, onFetch, isFetching }) => {
-    const crawlersDisabled = searchWeb || isOffline; // Disable crawlers if offline
+    const crawlersDisabled = searchWeb || isOffline; // Disable browser-based crawlers if offline
+    const apiCrawlersDisabled = searchWeb;            // API-based crawlers only blocked by searchWeb
     const fetchersDisabled = !searchWeb;
 
     const SourceButton = ({ id, label, icon: Icon, disabled, subText }) => (
@@ -519,32 +520,38 @@ const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onTogg
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-                <div className={`space-y-3 p-3 rounded-2xl bg-zinc-50/50 border border-dashed border-zinc-200 ${crawlersDisabled ? 'opacity-40 grayscale' : ''}`}>
-                    <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest text-center">AI Crawlers {isOffline ? '(Offline)' : ''}</div>
+                <div className="space-y-3 p-3 rounded-2xl bg-zinc-50/50 border border-dashed border-zinc-200">
+                    <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest text-center">
+                        AI Crawlers {isOffline ? '— Backend Offline' : ''}
+                    </div>
                     <div className="grid grid-cols-1 gap-2">
-                        <SourceButton
-                            id="AUTO"
-                            label="AUTO"
-                            disabled={crawlersDisabled}
-                            subText={config.deepseekAvailable ? "DeepSeek Enhanced" : null}
-                            icon={Sparkles}
-                        />
-                        {(config.notebooklmAvailable || config.notebooklmGuided) && (
+                        <div className={crawlersDisabled ? 'opacity-40 grayscale pointer-events-none' : ''}>
                             <SourceButton
-                                id="NOTEBOOKLM"
-                                label="NOTEBOOKLM"
-                                icon={Bot}
+                                id="AUTO"
+                                label="AUTO"
                                 disabled={crawlersDisabled}
-                                subText={config.notebooklmGuided ? "Guided Mode" : null}
+                                subText={config.deepseekAvailable ? "DeepSeek Enhanced" : null}
+                                icon={Sparkles}
                             />
+                        </div>
+                        {(config.notebooklmAvailable || config.notebooklmGuided) && (
+                            <div className={crawlersDisabled ? 'opacity-40 grayscale pointer-events-none' : ''}>
+                                <SourceButton
+                                    id="NOTEBOOKLM"
+                                    label="NOTEBOOKLM"
+                                    icon={Bot}
+                                    disabled={crawlersDisabled}
+                                    subText={config.notebooklmGuided ? "Guided Mode" : null}
+                                />
+                            </div>
                         )}
                         {config.khojAvailable && (
                             <SourceButton
                                 id="KHOJ"
                                 label="KHOJ"
                                 icon={Cpu}
-                                disabled={crawlersDisabled}
-                                subText="REST API"
+                                disabled={apiCrawlersDisabled}
+                                subText={isOffline ? "Start bridge.py to run" : "REST API"}
                             />
                         )}
                         {config.anythingllmAvailable && (
@@ -552,8 +559,8 @@ const IntelligenceSourceSelector = ({ value, onChange, config, searchWeb, onTogg
                                 id="ANYTHINGLLM"
                                 label="ANYTHINGLLM"
                                 icon={Layers}
-                                disabled={crawlersDisabled}
-                                subText={config.anythingllmMode === 'url_direct' ? "URL Direct" : "Chunk Based"}
+                                disabled={apiCrawlersDisabled}
+                                subText={isOffline ? "Start bridge.py to run" : (config.anythingllmMode === 'url_direct' ? "URL Direct" : "Chunk Based")}
                             />
                         )}
                     </div>
