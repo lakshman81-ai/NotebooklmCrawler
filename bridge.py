@@ -43,6 +43,10 @@ class ConfigSaveRequest(BaseModel):
     khojAvailable: Optional[bool] = None
     khojBaseUrl: Optional[str] = None
     khojApiKey: Optional[str] = None
+    anythingllmAvailable: Optional[bool] = None
+    anythingllmBaseUrl: Optional[str] = None
+    anythingllmApiKey: Optional[str] = None
+    anythingllmMode: Optional[str] = None
     trustedDomains: Optional[str] = None
     blockedDomains: Optional[str] = None
 
@@ -103,6 +107,9 @@ async def execute_pipeline(req: ExecutionRequest):
             "NOTEBOOKLM_AVAILABLE": str(req.config.get("modes", {}).get("D", True)).lower(),
             "KHOJ_AVAILABLE": str(req.config.get("khojAvailable", False)).lower(),
             "KHOJ_BASE_URL": req.config.get("khojBaseUrl", "http://localhost:42110"),
+            "ANYTHINGLLM_AVAILABLE": str(req.config.get("anythingllmAvailable", False)).lower(),
+            "ANYTHINGLLM_BASE_URL": req.config.get("anythingllmBaseUrl", "http://localhost:3001"),
+            "ANYTHINGLLM_MODE": req.config.get("anythingllmMode", "url_direct"),
             "DISCOVERY_METHOD": req.config.get("discoveryMethod", "Auto").lower(),
             "CR_CUSTOM_PROMPT": req.customPrompt or "",
             "CR_DIFFICULTY": req.config.get("difficulty", "Medium"),
@@ -219,6 +226,10 @@ async def load_config():
             "khojAvailable": config.get("KHOJ_AVAILABLE", "false").lower() == "true",
             "khojBaseUrl": config.get("KHOJ_BASE_URL", "http://localhost:42110"),
             "khojApiKey": config.get("KHOJ_API_KEY", ""),
+            "anythingllmAvailable": config.get("ANYTHINGLLM_AVAILABLE", "false").lower() == "true",
+            "anythingllmBaseUrl": config.get("ANYTHINGLLM_BASE_URL", "http://localhost:3001"),
+            "anythingllmApiKey": config.get("ANYTHINGLLM_API_KEY", ""),
+            "anythingllmMode": config.get("ANYTHINGLLM_MODE", "url_direct"),
             "trustedDomains": config.get("TRUSTED_DOMAINS", "byjus.com, vedantu.com, khanacademy.org"),
             "blockedDomains": config.get("BLOCKED_DOMAINS", "duckduckgo.com, youtube.com, facebook.com, twitter.com, instagram.com, pinterest.com, linkedin.com, amazon.com"),
             "targetUrl": config.get("TARGET_URL", ""),
@@ -260,6 +271,14 @@ async def save_config(req: ConfigSaveRequest):
             set_key(str(ENV_PATH), "KHOJ_BASE_URL", req.khojBaseUrl)
         if req.khojApiKey is not None:
             set_key(str(ENV_PATH), "KHOJ_API_KEY", req.khojApiKey)
+        if req.anythingllmAvailable is not None:
+            set_key(str(ENV_PATH), "ANYTHINGLLM_AVAILABLE", str(req.anythingllmAvailable).lower())
+        if req.anythingllmBaseUrl is not None:
+            set_key(str(ENV_PATH), "ANYTHINGLLM_BASE_URL", req.anythingllmBaseUrl)
+        if req.anythingllmApiKey is not None:
+            set_key(str(ENV_PATH), "ANYTHINGLLM_API_KEY", req.anythingllmApiKey)
+        if req.anythingllmMode is not None:
+            set_key(str(ENV_PATH), "ANYTHINGLLM_MODE", req.anythingllmMode)
         if req.trustedDomains is not None:
             set_key(str(ENV_PATH), "TRUSTED_DOMAINS", req.trustedDomains)
         if req.blockedDomains is not None:

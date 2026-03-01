@@ -1,6 +1,7 @@
 from ai_pipeline.notebooklm import run_notebooklm
 from ai_pipeline.deepseek import run_deepseek
 from ai_pipeline.khoj import run_khoj
+from ai_pipeline.anythingllm import run_anythingllm
 import os
 import logging
 
@@ -16,11 +17,14 @@ def deepseek_available():
 def khoj_available():
     return os.getenv("KHOJ_AVAILABLE", "false").lower() == "true"
 
+def anythingllm_available():
+    return os.getenv("ANYTHINGLLM_AVAILABLE", "false").lower() == "true"
+
 async def run_ai(chunks, context, page):
     """
     Routes execution based on available AI backends.
 
-    Priority: NotebookLM (Mode A) → Khoj (Mode C) → DeepSeek (Mode B)
+    Priority: NotebookLM (Mode A) → Khoj (Mode C) → AnythingLLM (Mode D) → DeepSeek (Mode B)
     """
     logger.info("AI Router decision point")
 
@@ -38,6 +42,10 @@ async def run_ai(chunks, context, page):
     elif khoj_available():
         logger.info("Routing to Mode C (Khoj API)")
         return run_khoj(chunks, context)
+
+    elif anythingllm_available():
+        logger.info("Routing to Mode D (AnythingLLM API)")
+        return run_anythingllm(chunks, context)
 
     elif deepseek_available():
         logger.info("Routing to Mode B (Fallback: DeepSeek only)")
